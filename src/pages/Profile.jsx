@@ -368,6 +368,182 @@ function PhotoGallery({ mainAvatar, theme, isKh }) {
   );
 }
 
+/* ── Self Preview Modal ─────────────────── */
+function SelfPreviewModal({ profile, onClose, theme }) {
+  const [photoIdx, setPhotoIdx] = useState(0);
+  const photos = [
+    profile.avatar,
+    profile.avatar?.replace(/img=\d+/, `img=${(profile.id || 47) + 10}`) || profile.avatar,
+    profile.avatar?.replace(/img=\d+/, `img=${(profile.id || 47) + 20}`) || profile.avatar,
+  ];
+
+  const interestEmoji = {
+    "ប្រាសាទ":"🏛️","ថត​រូប":"📷","ចំអិន":"🍳","ចំអិនអាហារ":"🍳",
+    "តន្ត្រី":"🎵","ភាពយន្ត":"🎬","អាន":"📚","ធម្មជាតិ":"🌿",
+    "យូហ្គា":"🧘","ដំណើរ":"✈️","ធ្វើ​ដំណើរ":"✈️","ហូប​ចុក":"🍜",
+    "ស្ទូច​ត្រី":"🎣","សមុទ្រ":"🌊","ហែល​ទឹក":"🏊","IT":"💻",
+    "ហ្វឹក​ហ្វឺន":"💪","Gaming":"🎮","ថតរូប":"📷","ចំណីអាហារ":"🍜",
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black overflow-y-auto" style={{ WebkitOverflowScrolling: "touch" }}>
+
+      {/* Close + label */}
+      <div className="absolute top-12 left-4 right-4 z-50 flex items-center justify-between">
+        <button onClick={onClose}
+          className="w-10 h-10 rounded-full flex items-center justify-center shadow-lg"
+          style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(8px)" }}>
+          <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+        <div className="px-4 py-1.5 rounded-full text-white text-xs font-semibold"
+          style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(8px)" }}>
+          👁️ Preview — as others see you
+        </div>
+      </div>
+
+      {/* Photo area */}
+      <div className="relative" style={{ height: "70vh" }}>
+        <img src={photos[photoIdx]} alt={profile.nameEn || profile.name}
+          className="w-full h-full object-cover" />
+
+        {/* Tap zones */}
+        <button className="absolute left-0 top-0 w-[35%] h-full z-10 opacity-0"
+          onClick={() => setPhotoIdx(i => Math.max(i - 1, 0))} />
+        <button className="absolute right-0 top-0 w-[35%] h-full z-10 opacity-0"
+          onClick={() => setPhotoIdx(i => Math.min(i + 1, photos.length - 1))} />
+
+        {/* Photo dots */}
+        <div className="absolute top-4 left-0 right-0 flex justify-center gap-2 z-20 px-6">
+          {photos.map((_, i) => (
+            <div key={i} className="rounded-full transition-all duration-300"
+              style={{
+                height: 4, flex: i === photoIdx ? 2 : 1, maxWidth: i === photoIdx ? 48 : 28,
+                background: i === photoIdx ? "white" : "rgba(255,255,255,0.38)",
+                boxShadow: i === photoIdx ? "0 0 10px rgba(255,255,255,0.9)" : "none",
+              }} />
+          ))}
+        </div>
+
+        {/* Gradient overlay */}
+        <div className="absolute inset-0 pointer-events-none"
+          style={{ background: "linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.20) 50%, transparent 75%)" }} />
+
+        {/* Name + age overlay */}
+        <div className="absolute bottom-0 left-0 right-0 px-6 pb-6 pointer-events-none">
+          <div className="flex items-center gap-2 mb-1">
+            <h2 className="text-white font-black" style={{ fontSize: 30 }}>{profile.name}</h2>
+            {profile.age && <span className="text-white/85 font-light text-2xl">{profile.age}</span>}
+            <span className="w-[22px] h-[22px] rounded-full flex items-center justify-center text-[11px] font-black text-white flex-shrink-0"
+              style={{ background: "linear-gradient(135deg,#3b82f6,#2563eb)", boxShadow: "0 2px 8px rgba(59,130,246,0.55)" }}>✓</span>
+          </div>
+          {profile.nameEn && <p className="text-white/65 text-sm mb-1">{profile.nameEn}</p>}
+          <p className="text-white/55 text-xs">📍 {profile.province || profile.location}</p>
+        </div>
+
+        {/* Cambodia flag strip */}
+        <div className="absolute top-0 right-0 z-20 pointer-events-none overflow-hidden" style={{ borderRadius: "0 0 0 0" }}>
+          <div className="flex flex-col" style={{ width: 5, height: 48 }}>
+            <div className="flex-1" style={{ background: "#032EA1" }} />
+            <div className="flex-1" style={{ background: "#E00025" }} />
+            <div className="flex-1" style={{ background: "#F5A623" }} />
+          </div>
+        </div>
+      </div>
+
+      {/* Info panel */}
+      <div className="bg-white rounded-t-3xl -mt-6 px-6 pt-7 pb-32">
+
+        {/* Location + distance */}
+        <div className="flex gap-3 mb-5">
+          <div className="flex items-center gap-1.5 bg-gray-50 rounded-2xl px-4 py-2.5">
+            <span>📍</span>
+            <span className="text-sm font-medium text-gray-700">{profile.province || profile.location || "ភ្នំពេញ"}</span>
+          </div>
+        </div>
+
+        {/* Bio */}
+        {profile.bio && (
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-1 h-5 rounded-full" style={{ background: theme.gradient }} />
+              <h3 className="text-base font-bold text-gray-800">អំពីខ្លួន / About me</h3>
+            </div>
+            <p className="text-gray-600 leading-relaxed text-sm">{profile.bio}</p>
+          </div>
+        )}
+
+        {/* Interests */}
+        {(profile.interests?.length > 0) && (
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-1 h-5 rounded-full" style={{ background: theme.gradient }} />
+              <h3 className="text-base font-bold text-gray-800">ចូល​ចិត្ត / Interests</h3>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {profile.interests.map(interest => (
+                <span key={interest} className="flex items-center gap-1.5 px-4 py-2 rounded-2xl text-sm font-medium"
+                  style={{ background: `${theme.primary}14`, color: theme.primary }}>
+                  <span>{interestEmoji[interest] || "✨"}</span>
+                  <span>{interest}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Looking for */}
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-1 h-5 rounded-full" style={{ background: theme.gradient }} />
+            <h3 className="text-base font-bold text-gray-800">ស្វែងរក / Looking for</h3>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { icon:"❤️", label:"ទំនាក់ទំនង", sub:"Relationship" },
+              { icon:"😊", label:"មិត្តភ័ក្ត",  sub:"Friendship"   },
+              { icon:"🌟", label:"ដៃគូស្មោះ",   sub:"Loyalty"      },
+              { icon:"🇰🇭", label:"ខ្មែរ​ស្មោះ", sub:"Cambodian"   },
+            ].map(item => (
+              <div key={item.label} className="flex items-center gap-3 p-3 rounded-2xl border border-gray-100 bg-gray-50">
+                <span className="text-xl">{item.icon}</span>
+                <div>
+                  <p className="text-xs font-bold text-gray-700">{item.label}</p>
+                  <p className="text-[11px] text-gray-400">{item.sub}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom cosmetic buttons */}
+      <div className="fixed bottom-0 pb-4 pt-3 px-6 flex gap-4 w-full"
+        style={{
+          maxWidth: 430, left: "50%", transform: "translateX(-50%)",
+          paddingBottom: "calc(16px + env(safe-area-inset-bottom,0px))",
+          background: "rgba(255,255,255,0.97)", backdropFilter: "blur(12px)",
+        }}>
+        <div className="flex-1 py-4 rounded-2xl font-bold text-base border-2 flex items-center justify-center gap-2 opacity-40 cursor-default"
+          style={{ borderColor: "#ef4444", color: "#ef4444" }}>
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+          No Interest
+        </div>
+        <div className="flex-1 py-4 rounded-2xl font-bold text-base text-white flex items-center justify-center gap-2 shadow-lg opacity-40 cursor-default"
+          style={{ background: "linear-gradient(135deg,#f472b6,#ec4899)" }}>
+          <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+          </svg>
+          Interest ❤️
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Profile() {
   const navigate = useNavigate();
   const { user, logout, updateProfile } = useAuth();
@@ -387,6 +563,7 @@ export default function Profile() {
   const profile = user || currentUser;
 
   const [showEdit, setShowEdit]         = useState(false);
+  const [showPreview, setShowPreview]   = useState(false);
   const [showLogout, setShowLogout]     = useState(false);
   const [openSection, setOpenSection]   = useState(null);
   const bgImgRef = useRef(null);
@@ -449,12 +626,19 @@ export default function Profile() {
             <p className="text-sm font-semibold mt-1" style={{ color: theme.primary }}>
               📍 {profile.province || profile.location || currentUser.location}
             </p>
-            {/* Edit button */}
-            <button onClick={() => setShowEdit(true)}
-              className="mt-3 px-6 py-2 rounded-2xl text-white text-sm font-bold shadow active:scale-95 transition-transform"
-              style={{ background: theme.gradient }}>
-              ✏️ {isKh ? "កែ​គណនី" : "Edit Profile"}
-            </button>
+            {/* Edit + Preview buttons */}
+            <div className="flex gap-3 mt-3">
+              <button onClick={() => setShowEdit(true)}
+                className="px-5 py-2 rounded-2xl text-white text-sm font-bold shadow active:scale-95 transition-transform"
+                style={{ background: theme.gradient }}>
+                ✏️ {isKh ? "កែ​គណនី" : "Edit Profile"}
+              </button>
+              <button onClick={() => setShowPreview(true)}
+                className="px-5 py-2 rounded-2xl text-sm font-bold shadow active:scale-95 transition-transform border-2"
+                style={{ borderColor: theme.primary, color: theme.primary, background: `${theme.primary}10` }}>
+                👁️ {isKh ? "មើល​ខ្លួន​ឯង" : "Preview"}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -725,6 +909,15 @@ export default function Profile() {
           profile={profile}
           onSave={handleSaveProfile}
           onClose={() => setShowEdit(false)}
+          theme={theme}
+        />
+      )}
+
+      {/* Self Preview Modal */}
+      {showPreview && (
+        <SelfPreviewModal
+          profile={profile}
+          onClose={() => setShowPreview(false)}
           theme={theme}
         />
       )}

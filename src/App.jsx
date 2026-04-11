@@ -7,7 +7,7 @@ import SwipeBack            from "./components/SwipeBack";
 import Landing              from "./pages/Landing";
 import Login                from "./pages/Login";
 import Register             from "./pages/Register";
-import Discover             from "./pages/Discover";
+import Discover             from "./pages/Find";
 import Matches              from "./pages/Matches";
 import Events               from "./pages/Events";
 import Messages             from "./pages/Messages";
