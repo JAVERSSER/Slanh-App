@@ -1,0 +1,13 @@
+{
+  "name": "Slanh App — ស្លាញ់",
+  "short_name": "Slanh",
+  "description": "Cambodian Dating App",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#032EA1",
+  "theme_color": "#032EA1",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
