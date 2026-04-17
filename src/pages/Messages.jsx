@@ -238,10 +238,11 @@ function ChatView({ contact, onBack, t }) {
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // User released before mic permission resolved — abort
+      if (cancelRef.current) { stream.getTracks().forEach(t => t.stop()); return; }
       const mr = new MediaRecorder(stream);
       chunksRef.current = [];
       recSecsRef.current = 0;
-      cancelRef.current = false;
       mr.ondataavailable = e => chunksRef.current.push(e.data);
       mr.onstop = () => {
         stream.getTracks().forEach(t => t.stop());
@@ -291,66 +292,61 @@ function ChatView({ contact, onBack, t }) {
     setRecordSecs(0);
   };
 
-  const micDown = async (e) => {
+  const micDown = (e) => {
     e.preventDefault();
     const pt = e.touches ? e.touches[0] : e;
     micAnchor.current = { x: pt.clientX, y: pt.clientY };
-    await startRecording();
-  };
+    cancelRef.current = false;
 
-  /* Drag tracking while holding mic (unlocked only) */
-  useEffect(() => {
-    if (!isRecording || voiceLocked) return;
     let done = false;
 
-    const onMove = (e) => {
+    const cleanup = () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("touchmove", onMove);
+      window.removeEventListener("mouseup",   onUp);
+      window.removeEventListener("touchend",  onUp);
+    };
+
+    const doCancel = () => {
+      cancelRef.current = true;
+      if (mediaRef.current) { try { mediaRef.current.stop(); } catch {} mediaRef.current = null; }
+      clearInterval(timerRef.current);
+      chunksRef.current = []; recSecsRef.current = 0;
+      setIsRecording(false); setVoiceLocked(false);
+      setVoiceDrag({ dx: 0, dy: 0 }); setRecordSecs(0);
+    };
+
+    const onMove = (ev) => {
       if (done) return;
-      const pt = e.touches ? e.touches[0] : e;
-      const dx = pt.clientX - micAnchor.current.x;
-      const dy = pt.clientY - micAnchor.current.y;
+      const p = ev.touches ? ev.touches[0] : ev;
+      const dx = p.clientX - micAnchor.current.x;
+      const dy = p.clientY - micAnchor.current.y;
       setVoiceDrag({ dx, dy });
-      if (dx < -80) {
-        done = true;
-        cancelRef.current = true;
-        if (mediaRef.current) { try { mediaRef.current.stop(); } catch {} mediaRef.current = null; }
-        clearInterval(timerRef.current);
-        chunksRef.current = []; recSecsRef.current = 0;
-        setIsRecording(false); setVoiceDrag({ dx: 0, dy: 0 }); setRecordSecs(0);
-      } else if (dy < -80) {
-        done = true;
-        setVoiceLocked(true);
-      }
+      if (dx < -80)      { done = true; cleanup(); doCancel(); }
+      else if (dy < -80) { done = true; cleanup(); setVoiceLocked(true); }
     };
 
     const onUp = () => {
       if (done) return;
       done = true;
+      cleanup();
       if (recSecsRef.current < 1) {
-        // Too short — cancel, don't send
-        cancelRef.current = true;
-        if (mediaRef.current) { try { mediaRef.current.stop(); } catch {} mediaRef.current = null; }
-        clearInterval(timerRef.current);
-        chunksRef.current = []; recSecsRef.current = 0;
-        setIsRecording(false); setVoiceDrag({ dx: 0, dy: 0 }); setRecordSecs(0);
+        doCancel();
       } else {
         if (mediaRef.current && mediaRef.current.state !== "inactive") mediaRef.current.stop();
         clearInterval(timerRef.current);
-        setIsRecording(false);
-        setVoiceDrag({ dx: 0, dy: 0 });
+        setIsRecording(false); setVoiceLocked(false); setVoiceDrag({ dx: 0, dy: 0 });
       }
     };
 
+    // Attach listeners NOW — before the async getUserMedia — so we never miss a release
     window.addEventListener("mousemove", onMove);
     window.addEventListener("touchmove", onMove, { passive: false });
-    window.addEventListener("mouseup", onUp);
-    window.addEventListener("touchend", onUp);
-    return () => {
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("touchmove", onMove);
-      window.removeEventListener("mouseup", onUp);
-      window.removeEventListener("touchend", onUp);
-    };
-  }, [isRecording, voiceLocked]);
+    window.addEventListener("mouseup",   onUp);
+    window.addEventListener("touchend",  onUp);
+
+    startRecording();
+  };
 
   const fmtTime = (s) => `${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;
 
@@ -505,18 +501,24 @@ function ChatView({ contact, onBack, t }) {
 
       {/* ── Recording bar — LOCKED mode ── */}
       {isRecording && voiceLocked && (
-        <div className="flex items-center gap-3 px-4 py-3 bg-red-50 border-t border-red-100 flex-shrink-0">
+        <div className="flex items-center gap-3 px-4 py-3 bg-white border-t border-gray-100 flex-shrink-0"
+          style={{ paddingBottom: "calc(8px + env(safe-area-inset-bottom,0px))" }}>
+          {/* Cancel */}
           <button onClick={cancelRecording}
-            className="w-9 h-9 rounded-full bg-red-100 flex items-center justify-center text-red-500 text-lg">✕</button>
-          <div className="flex-1 flex items-center gap-3">
-            <span className="w-3 h-3 rounded-full bg-red-500 flex-shrink-0" style={{ animation: "pulse 1s infinite" }} />
-            <div className="flex-1 h-1.5 bg-red-100 rounded-full overflow-hidden">
-              <div className="h-full bg-red-400 rounded-full" style={{ width: `${Math.min(recordSecs * 3, 100)}%`, transition: "width 1s linear" }} />
+            className="h-11 px-4 rounded-2xl bg-gray-100 flex items-center justify-center flex-shrink-0 active:scale-95 transition-transform">
+            <span className="text-gray-600 text-sm font-semibold">Cancel</span>
+          </button>
+          {/* Timer + waveform */}
+          <div className="flex-1 flex items-center gap-2 bg-red-50 rounded-2xl px-3 h-11">
+            <span className="w-2.5 h-2.5 rounded-full bg-red-500 flex-shrink-0" style={{ animation: "pulse 1s infinite" }} />
+            <span className="text-red-600 font-mono text-sm font-bold flex-shrink-0">{fmtTime(recordSecs)}</span>
+            <div className="flex-1 h-1.5 bg-red-200 rounded-full overflow-hidden">
+              <div className="h-full bg-red-400 rounded-full transition-all" style={{ width: `${Math.min(recordSecs * 2, 100)}%` }} />
             </div>
-            <span className="text-red-600 font-mono font-bold text-sm flex-shrink-0">{fmtTime(recordSecs)}</span>
           </div>
+          {/* Send */}
           <button onClick={stopRecording}
-            className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 shadow"
+            className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 shadow active:scale-95 transition-transform"
             style={{ background: "linear-gradient(135deg,#032EA1,#8B0020)" }}>
             <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
           </button>
@@ -525,31 +527,27 @@ function ChatView({ contact, onBack, t }) {
 
       {/* ── Recording bar — HOLD mode ── */}
       {isRecording && !voiceLocked && (
-        <div className="flex items-end gap-2 px-3 py-2 bg-white border-t border-gray-100 flex-shrink-0"
+        <div className="flex items-center gap-2 px-3 py-2 bg-white border-t border-gray-100 flex-shrink-0"
           style={{ paddingBottom: "calc(10px + env(safe-area-inset-bottom,0px))", WebkitUserSelect: "none", userSelect: "none", WebkitTouchCallout: "none" }}>
-          {/* Trash / cancel */}
-          <button onClick={cancelRecording}
-            className="w-11 h-11 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0 active:scale-90 transition-transform">
-            <svg className="w-5 h-5 text-red-500" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
-            </svg>
-          </button>
-          {/* Timer + hint */}
-          <div className="flex-1 flex items-center gap-2 bg-red-50 rounded-2xl px-3 h-11">
+          {/* Timer */}
+          <div className="flex items-center gap-2 flex-shrink-0 pl-1">
             <span className="w-2.5 h-2.5 rounded-full bg-red-500 flex-shrink-0" style={{ animation: "pulse 1s infinite" }} />
-            <span className="text-red-600 font-mono text-sm font-bold flex-shrink-0">{fmtTime(recordSecs)}</span>
-            <span className="flex-1 text-gray-400 text-xs text-center select-none">← Slide to cancel</span>
+            <span className="text-red-600 font-mono text-sm font-bold">{fmtTime(recordSecs)}</span>
           </div>
-          {/* Lock hint + mic button */}
+          {/* Slide hint */}
+          <div className="flex-1 flex items-center justify-center">
+            <span className="text-gray-400 text-xs">← Slide to cancel</span>
+          </div>
+          {/* Lock hint + mic */}
           <div className="flex flex-col items-center flex-shrink-0">
-            <svg className="w-3.5 h-3.5 text-gray-400 mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg className="w-3.5 h-3.5 text-[#032EA1] mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
             </svg>
-            <span className="text-[9px] text-gray-400 leading-none mb-1">Lock</span>
+            <span className="text-[9px] text-[#032EA1] font-semibold leading-none mb-1">LOCK</span>
             <button
               onMouseDown={micDown} onTouchStart={micDown}
               onContextMenu={e => e.preventDefault()}
-              className="w-11 h-11 rounded-full flex items-center justify-center shadow"
+              className="w-12 h-12 rounded-full flex items-center justify-center shadow-lg"
               style={{ background: "linear-gradient(135deg,#E00025,#8B0020)", touchAction: "none", WebkitUserSelect: "none", userSelect: "none" }}>
               <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
