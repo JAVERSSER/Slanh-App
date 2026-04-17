@@ -12,11 +12,26 @@ const INIT_CONVOS = profiles.slice(0, 4).map((p, i) => ({
   online: [true,false,true,false][i],
 }));
 
+function todayISO()     { return new Date().toISOString().slice(0,10); }
+function yesterdayISO() { return new Date(Date.now()-86400000).toISOString().slice(0,10); }
+
+function formatDateLabel(iso) {
+  const today     = todayISO();
+  const yesterday = yesterdayISO();
+  if (iso === today)     return "Today";
+  if (iso === yesterday) return "Yesterday";
+  const d = new Date(iso);
+  const diffDays = Math.round((new Date(today) - d) / 86400000);
+  if (diffDays < 7) return d.toLocaleDateString("en-US", { weekday: "long" });
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
 function mkMsg(from, extras = {}) {
   return {
     id: Date.now() + Math.random(),
     from,
     text: "",
+    date: todayISO(),
     time: new Date().toLocaleTimeString("en-US", { hour:"2-digit", minute:"2-digit", hour12: false }),
     status: "sent",
     reaction: null,
@@ -130,10 +145,10 @@ function ChatView({ contact, onBack, t }) {
   }, []);
 
   const [msgs, setMsgs] = useState([
-    mkMsg("them", { text: "ជំរាបសួរ! 😊", time: "10:00", status: "seen" }),
-    mkMsg("me",   { text: "ជំរាបសួរ! ខ្ញុំ​សុខ​សប្បាយ 🙏", time: "10:01", status: "seen" }),
-    mkMsg("them", { text: "អ្នក​នៅ​ភ្នំ​ពេញ​ ឬ?", time: "10:02", status: "read" }),
-    mkMsg("me",   { text: "បាទ / ចាស ។ អ្នក​ ៗ?", time: "10:03", status: "seen", reaction: "❤️" }),
+    mkMsg("them", { text: "ជំរាបសួរ! 😊",                         time: "10:00", date: yesterdayISO(), status: "seen" }),
+    mkMsg("me",   { text: "ជំរាបសួរ! ខ្ញុំ​សុខ​សប្បាយ 🙏",         time: "10:01", date: yesterdayISO(), status: "seen" }),
+    mkMsg("them", { text: "អ្នក​នៅ​ភ្នំ​ពេញ​ ឬ?",                    time: "09:15", status: "read" }),
+    mkMsg("me",   { text: "បាទ / ចាស ។ អ្នក​ ៗ?",                  time: "09:17", status: "seen", reaction: "❤️" }),
   ]);
   const [input, setInput]               = useState("");
   const [typing, setTyping]             = useState(false);
@@ -310,10 +325,19 @@ function ChatView({ contact, onBack, t }) {
     const onUp = () => {
       if (done) return;
       done = true;
-      if (mediaRef.current && mediaRef.current.state !== "inactive") mediaRef.current.stop();
-      clearInterval(timerRef.current);
-      setIsRecording(false);
-      setVoiceDrag({ dx: 0, dy: 0 });
+      if (recSecsRef.current < 1) {
+        // Too short — cancel, don't send
+        cancelRef.current = true;
+        if (mediaRef.current) { try { mediaRef.current.stop(); } catch {} mediaRef.current = null; }
+        clearInterval(timerRef.current);
+        chunksRef.current = []; recSecsRef.current = 0;
+        setIsRecording(false); setVoiceDrag({ dx: 0, dy: 0 }); setRecordSecs(0);
+      } else {
+        if (mediaRef.current && mediaRef.current.state !== "inactive") mediaRef.current.stop();
+        clearInterval(timerRef.current);
+        setIsRecording(false);
+        setVoiceDrag({ dx: 0, dy: 0 });
+      }
     };
 
     window.addEventListener("mousemove", onMove);
@@ -334,9 +358,19 @@ function ChatView({ contact, onBack, t }) {
   const renderMsg = (msg, idx) => {
     const isMe = msg.from === "me";
     const showAv = !isMe && (idx === 0 || msgs[idx-1].from !== "them");
+    const showDate = idx === 0 || msgs[idx-1].date !== msg.date;
 
     return (
-      <div key={msg.id} className={`flex items-end gap-2 ${isMe ? "justify-end" : "justify-start"} mb-1`}>
+      <div key={msg.id}>
+        {/* Date separator */}
+        {showDate && (
+          <div className="flex items-center justify-center my-3">
+            <span className="bg-gray-200/80 text-gray-500 text-[11px] font-medium px-3 py-1 rounded-full">
+              {formatDateLabel(msg.date)}
+            </span>
+          </div>
+        )}
+      <div className={`flex items-end gap-2 ${isMe ? "justify-end" : "justify-start"} mb-1`}>
         {!isMe && (
           <img src={contact.avatar} alt=""
             className="w-7 h-7 rounded-full object-cover flex-shrink-0"
@@ -407,6 +441,7 @@ function ChatView({ contact, onBack, t }) {
             {isMe && <span className="text-[10px] text-[#032EA1]">{msg.status === "seen" ? "✓✓" : "✓"}</span>}
           </div>
         </div>
+      </div>
       </div>
     );
   };
@@ -491,7 +526,7 @@ function ChatView({ contact, onBack, t }) {
       {/* ── Recording bar — HOLD mode ── */}
       {isRecording && !voiceLocked && (
         <div className="flex items-end gap-2 px-3 py-2 bg-white border-t border-gray-100 flex-shrink-0"
-          style={{ paddingBottom: "calc(10px + env(safe-area-inset-bottom,0px))" }}>
+          style={{ paddingBottom: "calc(10px + env(safe-area-inset-bottom,0px))", WebkitUserSelect: "none", userSelect: "none", WebkitTouchCallout: "none" }}>
           {/* Trash / cancel */}
           <button onClick={cancelRecording}
             className="w-11 h-11 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0 active:scale-90 transition-transform">
@@ -513,8 +548,9 @@ function ChatView({ contact, onBack, t }) {
             <span className="text-[9px] text-gray-400 leading-none mb-1">Lock</span>
             <button
               onMouseDown={micDown} onTouchStart={micDown}
+              onContextMenu={e => e.preventDefault()}
               className="w-11 h-11 rounded-full flex items-center justify-center shadow"
-              style={{ background: "linear-gradient(135deg,#E00025,#8B0020)", touchAction: "none" }}>
+              style={{ background: "linear-gradient(135deg,#E00025,#8B0020)", touchAction: "none", WebkitUserSelect: "none", userSelect: "none" }}>
               <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
               </svg>
@@ -578,8 +614,9 @@ function ChatView({ contact, onBack, t }) {
           ) : (
             <button
               onMouseDown={micDown} onTouchStart={micDown}
+              onContextMenu={e => e.preventDefault()}
               className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 shadow active:scale-90 transition-all"
-              style={{ background: "linear-gradient(135deg,#032EA1,#8B0020)", touchAction: "none" }}>
+              style={{ background: "linear-gradient(135deg,#032EA1,#8B0020)", touchAction: "none", WebkitUserSelect: "none", userSelect: "none" }}>
               <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
               </svg>
