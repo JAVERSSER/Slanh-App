@@ -16,7 +16,6 @@ const items = [
   {
     to: "/matches",
     label: "Matches",
-    badge: 3,
     icon: (active) => (
       /* Heart */
       <svg viewBox="0 0 24 24" fill={active ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2} className="w-5 h-5">
