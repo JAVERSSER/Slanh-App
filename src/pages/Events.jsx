@@ -75,7 +75,7 @@ function EventCard({ ev, lang, joined, onToggle }) {
             ))}
           </div>
           <button onClick={() => onToggle(ev.id)}
-            className={`px-4 py-2 rounded-xl text-sm font-bold transition-all active:scale-95 ${
+            className={`px-4 py-2.5 min-h-[44px] rounded-xl text-sm font-bold transition-all active:scale-95 flex items-center ${
               joined
                 ? "bg-green-100 text-green-600"
                 : "text-white"
@@ -115,7 +115,7 @@ export default function Events() {
         <div className="flex gap-2 mt-4 overflow-x-auto no-scrollbar pb-1">
           {categories.map(cat => (
             <button key={cat.key} onClick={() => setActiveCat(cat.key)}
-              className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all ${
+              className={`flex-shrink-0 px-4 py-2.5 min-h-[40px] rounded-full text-sm font-medium transition-all ${
                 activeCat === cat.key
                   ? "bg-white text-[#032EA1] shadow"
                   : "bg-white/20 text-white"

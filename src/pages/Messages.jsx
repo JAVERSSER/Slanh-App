@@ -324,7 +324,7 @@ function ChatView({ contact, onBack, t }) {
 
       {/* ── Header ── */}
       <div className="flex items-center gap-3 px-4 pt-12 pb-3 bg-white shadow-sm flex-shrink-0">
-        <button onClick={onBack} className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center">
+        <button onClick={onBack} className="w-11 h-11 rounded-full bg-gray-100 flex items-center justify-center">
           <svg className="w-5 h-5 text-[#032EA1]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
           </svg>
@@ -337,12 +337,12 @@ function ChatView({ contact, onBack, t }) {
           </p>
         </div>
         <div className="flex gap-2">
-          <button className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center">
+          <button className="w-11 h-11 rounded-full bg-gray-100 flex items-center justify-center">
             <svg className="w-5 h-5 text-[#032EA1]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
             </svg>
           </button>
-          <button className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center">
+          <button className="w-11 h-11 rounded-full bg-gray-100 flex items-center justify-center">
             <svg className="w-5 h-5 text-[#032EA1]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.649v6.702a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
             </svg>
@@ -404,7 +404,7 @@ function ChatView({ contact, onBack, t }) {
           {/* + Attachment */}
           <div className="relative flex-shrink-0">
             <button onClick={() => { setShowAttach(v => !v); }}
-              className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${showAttach ? "rotate-45" : ""}`}
+              className={`w-11 h-11 rounded-full flex items-center justify-center transition-all ${showAttach ? "rotate-45" : ""}`}
               style={{ background: showAttach ? "linear-gradient(135deg,#032EA1,#8B0020)" : "#f3f4f6" }}>
               <svg className={`w-5 h-5 ${showAttach ? "text-white" : "text-gray-500"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -423,7 +423,7 @@ function ChatView({ contact, onBack, t }) {
 
           {/* Camera shortcut */}
           <button onClick={() => camInputRef.current?.click()}
-            className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
+            className="w-11 h-11 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
             <svg className="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -435,7 +435,7 @@ function ChatView({ contact, onBack, t }) {
             <input ref={inputRef} type="text" value={input} onChange={e => setInput(e.target.value)}
               onKeyDown={e => e.key === "Enter" && !e.shiftKey && send()}
               placeholder={t("typeMessage")}
-              className="flex-1 bg-transparent outline-none text-sm min-w-0" />
+              className="flex-1 bg-transparent outline-none min-w-0" />
             {/* Emoji button — focuses the input so the phone's native emoji keyboard appears */}
             <button
               onClick={() => { setShowAttach(false); inputRef.current?.focus(); }}
@@ -447,7 +447,7 @@ function ChatView({ contact, onBack, t }) {
           {/* Send button */}
           {input.trim() && (
             <button onClick={send}
-              className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 shadow active:scale-90 transition-transform"
+              className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 shadow active:scale-90 transition-transform"
               style={{ background: "linear-gradient(135deg,#032EA1,#8B0020)" }}>
               <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
@@ -457,7 +457,7 @@ function ChatView({ contact, onBack, t }) {
           {/* Mic button — always visible */}
           {!input.trim() && (
             <button onClick={startRecording}
-              className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 shadow active:scale-90 transition-all"
+              className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 shadow active:scale-90 transition-all"
               style={{ background: "linear-gradient(135deg,#032EA1,#8B0020)" }}>
               <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
@@ -501,7 +501,7 @@ export default function Messages() {
             <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
           </svg>
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search..."
-            className="flex-1 bg-transparent outline-none text-sm" />
+            className="flex-1 bg-transparent outline-none" />
         </div>
       </div>
 

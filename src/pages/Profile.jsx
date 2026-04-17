@@ -78,7 +78,7 @@ function EditProfileModal({ profile, onSave, onClose, theme }) {
     <div className="fixed inset-0 z-50 flex flex-col bg-white overflow-y-auto">
       {/* Header */}
       <div className="flex items-center justify-between px-5 pt-12 pb-4 bg-white border-b border-gray-100 sticky top-0 z-10">
-        <button onClick={onClose} className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center">
+        <button onClick={onClose} className="w-11 h-11 rounded-full bg-gray-100 flex items-center justify-center">
           <svg className="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/>
           </svg>
@@ -121,7 +121,7 @@ function EditProfileModal({ profile, onSave, onClose, theme }) {
             <input type={f.type} value={form[f.key]}
               onChange={e => set(f.key, f.type === "number" ? +e.target.value : e.target.value)}
               placeholder={f.placeholder}
-              className="w-full px-4 py-3 rounded-2xl border border-gray-200 bg-gray-50 text-sm outline-none focus:border-blue-300 transition-colors" />
+              className="w-full px-4 py-3 rounded-2xl border border-gray-200 bg-gray-50 outline-none focus:border-blue-300 transition-colors" />
           </div>
         ))}
 
@@ -146,7 +146,7 @@ function EditProfileModal({ profile, onSave, onClose, theme }) {
           <label className="block text-xs font-bold text-gray-500 mb-1.5">អំពី​ខ្លួន / About Me</label>
           <textarea value={form.bio} onChange={e => set("bio", e.target.value)} rows={4}
             placeholder="សរសេរ​អំពី​ខ្លួន​អ្នក... / Write about yourself..."
-            className="w-full px-4 py-3 rounded-2xl border border-gray-200 bg-gray-50 text-sm outline-none focus:border-blue-300 transition-colors resize-none" />
+            className="w-full px-4 py-3 rounded-2xl border border-gray-200 bg-gray-50 outline-none focus:border-blue-300 transition-colors resize-none" />
         </div>
 
         {/* Interests */}

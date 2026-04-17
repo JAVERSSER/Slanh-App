@@ -70,7 +70,7 @@ export default function Login() {
                 value={form.phone}
                 onChange={(e) => set("phone", e.target.value)}
                 placeholder="012 xxx xxx"
-                className="flex-1 outline-none text-sm bg-transparent"
+                className="flex-1 outline-none bg-transparent"
               />
             </div>
           </div>
@@ -84,7 +84,7 @@ export default function Login() {
                 value={form.password}
                 onChange={(e) => set("password", e.target.value)}
                 placeholder="••••••••"
-                className="flex-1 outline-none text-sm bg-transparent"
+                className="flex-1 outline-none bg-transparent"
               />
               <button type="button" onClick={() => setShowPass((v) => !v)} className="text-gray-400 hover:text-gray-600 ml-2">
                 {showPass ? "🙈" : "👁️"}
@@ -102,7 +102,7 @@ export default function Login() {
 
           {/* Forgot */}
           <div className="text-right">
-            <button type="button" className="text-[#032EA1] text-sm font-medium hover:underline">
+            <button type="button" className="text-[#032EA1] text-sm font-medium hover:underline py-2 px-1 min-h-[44px] inline-flex items-center">
               {t("forgotPass")}
             </button>
           </div>

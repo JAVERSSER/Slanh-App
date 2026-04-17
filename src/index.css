@@ -19,6 +19,21 @@
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
+/* ── Touch / Tap improvements ────────────── */
+button, a, [role="button"] {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Prevent iOS auto-zoom: inputs must be ≥ 16px */
+input, textarea, select {
+  font-size: 16px;
+}
+/* Keep placeholder visually smaller without shrinking the field */
+input::placeholder, textarea::placeholder {
+  font-size: 0.875rem;
+}
+
 body {
   font-family: 'Kantumruy Pro', 'Hanuman', sans-serif;
   background-color: var(--kh-cream);
@@ -42,6 +57,7 @@ body {
 .kh-btn {
   width: 100%;
   padding: 14px 0;
+  min-height: 48px;
   border-radius: 16px;
   color: white;
   font-weight: 700;
@@ -75,16 +91,19 @@ body {
   transition: border-color 0.2s;
 }
 .kh-input:focus-within { border-color: var(--kh-blue); }
-.kh-input input { flex: 1; outline: none; font-size: 0.875rem; background: transparent; }
+.kh-input input { flex: 1; outline: none; font-size: 16px; background: transparent; }
 
 /* ── Chips ──────────────────────────────── */
 .kh-chip {
   font-size: 0.75rem;
-  padding: 4px 12px;
+  padding: 6px 12px;
   border-radius: 999px;
   font-weight: 500;
   transition: all 0.15s;
   cursor: pointer;
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
 }
 .kh-chip-active { background: var(--kh-blue); color: white; }
 .kh-chip-idle   { background: rgba(3,46,161,0.08); color: var(--kh-blue); }

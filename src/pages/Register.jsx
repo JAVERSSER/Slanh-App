@@ -150,7 +150,7 @@ export default function Register() {
                 <label className="block text-sm font-medium text-gray-600 mb-1">{label}</label>
                 <div className="flex items-center gap-2 bg-white rounded-2xl px-4 py-3 border-2 border-gray-100 focus-within:border-[#032EA1] transition-colors">
                   <span>{icon}</span>
-                  <input type={type} value={form[key]} onChange={(e) => set(key, e.target.value)} placeholder={placeholder} className="flex-1 outline-none text-sm bg-transparent" />
+                  <input type={type} value={form[key]} onChange={(e) => set(key, e.target.value)} placeholder={placeholder} className="flex-1 outline-none bg-transparent" />
                 </div>
               </div>
             ))}
@@ -161,7 +161,7 @@ export default function Register() {
               <div className="flex items-center gap-2 bg-white rounded-2xl px-4 py-3 border-2 border-gray-100 focus-within:border-[#032EA1] transition-colors">
                 <span>🇰🇭</span><span className="text-gray-400 text-sm">+855</span>
                 <div className="w-px h-5 bg-gray-200" />
-                <input type="tel" value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="012 xxx xxx" className="flex-1 outline-none text-sm bg-transparent" />
+                <input type="tel" value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="012 xxx xxx" className="flex-1 outline-none bg-transparent" />
               </div>
             </div>
 
@@ -171,7 +171,7 @@ export default function Register() {
               <div className="flex gap-3">
                 {[{ val: "male", label: t("male"), icon: "👨" }, { val: "female", label: t("female"), icon: "👩" }].map((g) => (
                   <button key={g.val} type="button" onClick={() => set("gender", g.val)}
-                    className={`flex-1 py-3 rounded-2xl border-2 text-sm font-medium transition-all flex flex-col items-center gap-1 ${form.gender === g.val ? "border-[#032EA1] bg-[#032EA1]/5 text-[#032EA1]" : "border-gray-100 bg-white text-gray-500"}`}>
+                    className={`flex-1 py-3 min-h-[52px] rounded-2xl border-2 text-sm font-medium transition-all flex flex-col items-center gap-1 ${form.gender === g.val ? "border-[#032EA1] bg-[#032EA1]/5 text-[#032EA1]" : "border-gray-100 bg-white text-gray-500"}`}>
                     <span className="text-xl">{g.icon}</span>{g.label}
                   </button>
                 ))}
@@ -183,7 +183,7 @@ export default function Register() {
               <div key={key}>
                 <label className="block text-sm font-medium text-gray-600 mb-1">{key === "password" ? t("password") : t("confirmPass")}</label>
                 <div className="flex items-center bg-white rounded-2xl px-4 py-3 border-2 border-gray-100 focus-within:border-[#032EA1] transition-colors">
-                  <input type={showPass ? "text" : "password"} value={form[key]} onChange={(e) => set(key, e.target.value)} placeholder="••••••••" className="flex-1 outline-none text-sm bg-transparent" />
+                  <input type={showPass ? "text" : "password"} value={form[key]} onChange={(e) => set(key, e.target.value)} placeholder="••••••••" className="flex-1 outline-none bg-transparent" />
                   {key === "confirmPass" && (
                     <button type="button" onClick={() => setShowPass((v) => !v)} className="text-gray-400 ml-2">{showPass ? "🙈" : "👁️"}</button>
                   )}
@@ -204,10 +204,11 @@ export default function Register() {
           <div className="space-y-4">
             <h2 className="text-xl font-bold text-[#032EA1] mb-2">📍 {t("province")}</h2>
             <p className="text-gray-400 text-sm mb-3">{lang === "kh" ? "អ្នក​នៅ​ខេត្ត​ណា?" : "Which province are you in?"}</p>
-            <div className="grid grid-cols-2 gap-2 max-h-72 overflow-y-auto">
+            <div className="grid grid-cols-2 gap-2 max-h-72 overflow-y-auto"
+              style={{ WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
               {PROVINCES.map((p) => (
                 <button key={p} onClick={() => set("province", p)}
-                  className={`py-3 px-4 rounded-2xl text-sm border-2 transition-all font-medium ${form.province === p ? "border-[#032EA1] bg-[#032EA1] text-white" : "border-gray-100 bg-white text-gray-600 hover:border-[#032EA1]/40"}`}>
+                  className={`py-3 px-4 min-h-[48px] rounded-2xl text-sm border-2 transition-all font-medium ${form.province === p ? "border-[#032EA1] bg-[#032EA1] text-white" : "border-gray-100 bg-white text-gray-600 hover:border-[#032EA1]/40"}`}>
                   {p}
                 </button>
               ))}

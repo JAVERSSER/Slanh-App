@@ -153,7 +153,7 @@ function StoryViewer({ profile, onClose, theme }) {
 
       {/* Close */}
       <button onClick={onClose}
-        className="absolute top-14 right-4 z-20 w-9 h-9 rounded-full bg-black/40 flex items-center justify-center">
+        className="absolute top-14 right-4 z-20 w-11 h-11 rounded-full bg-black/40 flex items-center justify-center">
         <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/>
         </svg>
@@ -704,7 +704,7 @@ const [detailProfile, setDetailProfile] = useState(null);
           <LangToggleBtnDark />
           <div className="relative">
             <button onClick={() => setShowNotifs(v => !v)}
-              className="w-8 h-8 rounded-xl flex items-center justify-center shadow-sm relative"
+              className="w-10 h-10 rounded-xl flex items-center justify-center shadow-sm relative"
               style={{ background: showNotifs ? theme.primary : "white", border: "1px solid #f3f4f6" }}>
               <svg className="w-4 h-4" style={{ color: showNotifs ? "white" : theme.primary }}
                 fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

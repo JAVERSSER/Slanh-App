@@ -131,7 +131,7 @@ export default function Matches() {
               { key:"liked",   kh:"ចូល​ចិត្ត​ (~"+likedYou.length+")", en:"Liked You ("+likedYou.length+")" },
             ].map(tb => (
               <button key={tb.key} onClick={() => setTab(tb.key)}
-                className={`flex-1 py-2 rounded-xl text-sm font-medium transition-all ${tab === tb.key ? "bg-white shadow-sm" : "text-gray-400"}`}
+                className={`flex-1 py-2.5 min-h-[44px] rounded-xl text-sm font-medium transition-all ${tab === tb.key ? "bg-white shadow-sm" : "text-gray-400"}`}
                 style={tab === tb.key ? { color: theme.primary } : {}}>
                 {isKh ? tb.kh : tb.en}
               </button>
@@ -201,10 +201,10 @@ export default function Matches() {
                   </button>
                   <div className="flex flex-col gap-2 flex-shrink-0">
                     <button onClick={() => navigate("/messages")}
-                      className="w-9 h-9 rounded-full flex items-center justify-center text-lg shadow-sm"
+                      className="w-11 h-11 rounded-full flex items-center justify-center text-lg shadow-sm active:scale-90 transition-transform"
                       style={{ background: theme.gradient }}>💬</button>
                     <button onClick={() => setRemoved(p => new Set(p).add(m.id))}
-                      className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 text-lg hover:bg-red-50 hover:text-red-400 transition-colors">✕</button>
+                      className="w-11 h-11 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 text-lg hover:bg-red-50 hover:text-red-400 transition-colors active:scale-90">✕</button>
                   </div>
                 </div>
               ))}
