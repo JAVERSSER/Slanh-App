@@ -175,22 +175,6 @@ function ChatView({ contact, onBack, t }) {
   const imgInputRef  = useRef(null);
   const camInputRef  = useRef(null);
   const fileInputRef = useRef(null);
-  const micBtnRef    = useRef(null);
-
-  // Non-passive native touchstart so preventDefault() actually blocks selection on mobile
-  useEffect(() => {
-    const el = micBtnRef.current;
-    if (!el) return;
-    const block = (e) => e.preventDefault();
-    el.addEventListener("touchstart",   block, { passive: false });
-    el.addEventListener("contextmenu",  block);
-    el.addEventListener("selectstart",  block);
-    return () => {
-      el.removeEventListener("touchstart",  block);
-      el.removeEventListener("contextmenu", block);
-      el.removeEventListener("selectstart", block);
-    };
-  }, []);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs, typing]);
 
@@ -437,7 +421,8 @@ function ChatView({ contact, onBack, t }) {
   };
 
   return (
-    <div className="flex flex-col" style={{ height: "100dvh", background: "#F0F2F5" }}
+    <div className="flex flex-col" style={{ height: "100dvh", background: "#F0F2F5",
+        WebkitUserSelect: "none", userSelect: "none", WebkitTouchCallout: "none" }}
       onClick={() => { setReactionTarget(null); setShowAttach(false); }}>
 
       {/* ── Header ── */}
@@ -529,7 +514,7 @@ function ChatView({ contact, onBack, t }) {
       {/* ── Normal input bar ── */}
       {!isRecording && (
         <div className="flex items-end gap-2 px-3 py-2 bg-white border-t border-gray-100 flex-shrink-0"
-          style={{ paddingBottom: "calc(10px + env(safe-area-inset-bottom,0px))", userSelect: "none", WebkitUserSelect: "none" }}
+          style={{ paddingBottom: "calc(10px + env(safe-area-inset-bottom,0px))" }}
           onClick={e => e.stopPropagation()}>
 
           {/* + Attachment */}
@@ -566,7 +551,8 @@ function ChatView({ contact, onBack, t }) {
             <input ref={inputRef} type="text" value={input} onChange={e => setInput(e.target.value)}
               onKeyDown={e => e.key === "Enter" && !e.shiftKey && send()}
               placeholder={t("typeMessage")}
-              className="flex-1 bg-transparent outline-none min-w-0" />
+              className="flex-1 bg-transparent outline-none min-w-0"
+              style={{ WebkitUserSelect: "text", userSelect: "text" }} />
           </div>
 
           {/* Send or Mic */}
@@ -580,19 +566,14 @@ function ChatView({ contact, onBack, t }) {
             </button>
           ) : (
             <button
-              ref={micBtnRef}
               onMouseDown={micPointerDown}
               onTouchStart={micPointerDown}
               className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 shadow"
               style={{
                 background: "linear-gradient(135deg,#032EA1,#8B0020)",
                 touchAction: "none",
-                userSelect: "none",
-                WebkitUserSelect: "none",
-                WebkitTouchCallout: "none",
-                WebkitTapHighlightColor: "transparent",
+                WebkitTapHighlightColor: "rgba(0,0,0,0)",
                 outline: "none",
-                cursor: "pointer",
               }}>
               <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
