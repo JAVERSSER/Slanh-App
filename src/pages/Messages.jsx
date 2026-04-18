@@ -168,6 +168,7 @@ function ChatView({ contact, onBack, t }) {
   const micAnchor      = useRef({ x: 0, y: 0 });
   const recordStartRef = useRef(0);
   const cancelRef      = useRef(false);
+  const shouldSendRef  = useRef(false);  // true = release happened before MediaRecorder was ready
   const typingTimer    = useRef(null);
   const bottomRef      = useRef(null);
   const lpTimer        = useRef(null);   // long-press timer for reactions
@@ -254,6 +255,11 @@ function ChatView({ contact, onBack, t }) {
       };
       mr.start();
       mediaRef.current = mr;
+      // User released before we were ready — stop immediately so onstop sends
+      if (shouldSendRef.current) {
+        shouldSendRef.current = false;
+        mr.stop();
+      }
     } catch {
       clearInterval(timerRef.current);
       setIsRecording(false);
@@ -315,6 +321,7 @@ function ChatView({ contact, onBack, t }) {
 
     const doCancel = () => {
       cancelRef.current = true;
+      shouldSendRef.current = false;
       clearInterval(timerRef.current);
       if (mediaRef.current && mediaRef.current.state !== "inactive") {
         try { mediaRef.current.stop(); } catch {}
@@ -333,8 +340,11 @@ function ChatView({ contact, onBack, t }) {
       const dx = p.clientX - micAnchor.current.x;
       const dy = p.clientY - micAnchor.current.y;
       setVoiceDrag({ dx, dy });
-      if (dx < -80)      { done = true; cleanup(); doCancel(); }
-      else if (dy < -80) { done = true; cleanup(); clearInterval(timerRef.current); setVoiceLocked(true); }
+      if (dx < -80) {
+        done = true; cleanup(); doCancel();
+      } else if (dy < -80) {
+        done = true; cleanup(); clearInterval(timerRef.current); setVoiceLocked(true);
+      }
     };
 
     const onUp = () => {
@@ -344,11 +354,13 @@ function ChatView({ contact, onBack, t }) {
       clearInterval(timerRef.current);
       const elapsed = Date.now() - recordStartRef.current;
       if (elapsed < 300) {
-        // Too short — cancel silently
         doCancel();
       } else {
         if (mediaRef.current && mediaRef.current.state !== "inactive") {
-          mediaRef.current.stop(); // onstop sends the message
+          mediaRef.current.stop(); // onstop will send the message
+        } else {
+          // MediaRecorder not ready yet — flag startRecording to stop+send when ready
+          shouldSendRef.current = true;
         }
         setIsRecording(false);
         setVoiceLocked(false);
@@ -519,62 +531,101 @@ function ChatView({ contact, onBack, t }) {
         </div>
       )}
 
-      {/* ── Recording bar — LOCKED mode ── */}
-      {isRecording && voiceLocked && (
-        <div className="flex items-center gap-3 px-4 py-3 bg-white border-t border-gray-100 flex-shrink-0"
-          style={{ paddingBottom: "calc(8px + env(safe-area-inset-bottom,0px))" }}>
-          {/* Cancel */}
-          <button onClick={cancelRecording}
-            className="h-11 px-4 rounded-2xl bg-gray-100 flex items-center justify-center flex-shrink-0 active:scale-95 transition-transform">
-            <span className="text-gray-600 text-sm font-semibold">Cancel</span>
-          </button>
-          {/* Timer + waveform */}
-          <div className="flex-1 flex items-center gap-2 bg-red-50 rounded-2xl px-3 h-11">
-            <span className="w-2.5 h-2.5 rounded-full bg-red-500 flex-shrink-0" style={{ animation: "pulse 1s infinite" }} />
-            <span className="text-red-600 font-mono text-sm font-bold flex-shrink-0">{fmtTime(recordMs)}</span>
-            <div className="flex-1 h-1.5 bg-red-200 rounded-full overflow-hidden">
-              <div className="h-full bg-red-400 rounded-full transition-all" style={{ width: `${Math.min(Math.floor(recordMs / 1000) * 2, 100)}%` }} />
+      {/* ── Recording bar ── */}
+      {isRecording && (
+        voiceLocked ? (
+          /* LOCKED mode — slides in */
+          <div className="flex items-center gap-3 px-4 py-3 bg-white border-t border-gray-100 flex-shrink-0"
+            style={{ paddingBottom: "calc(8px + env(safe-area-inset-bottom,0px))", animation: "slideUp2 .18s cubic-bezier(.22,1,.36,1)" }}>
+            <button onClick={cancelRecording}
+              className="h-11 px-4 rounded-2xl bg-gray-100 flex items-center justify-center flex-shrink-0 active:scale-95 transition-transform">
+              <span className="text-gray-600 text-sm font-semibold">Cancel</span>
+            </button>
+            <div className="flex-1 flex items-center gap-2 bg-red-50 rounded-2xl px-3 h-11">
+              <span className="w-2.5 h-2.5 rounded-full bg-red-500 flex-shrink-0" style={{ animation: "pulse 1s infinite" }} />
+              <span className="text-red-600 font-mono text-sm font-bold flex-shrink-0">{fmtTime(recordMs)}</span>
+              <div className="flex-1 h-1.5 bg-red-200 rounded-full overflow-hidden">
+                <div className="h-full bg-red-400 rounded-full" style={{ width: `${Math.min(Math.floor(recordMs / 1000) * 2, 100)}%`, transition: "width 0.5s linear" }} />
+              </div>
             </div>
-          </div>
-          {/* Send */}
-          <button onClick={stopRecording}
-            className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 shadow active:scale-95 transition-transform"
-            style={{ background: "linear-gradient(135deg,#032EA1,#8B0020)" }}>
-            <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
-          </button>
-        </div>
-      )}
-
-      {/* ── Recording bar — HOLD mode ── */}
-      {isRecording && !voiceLocked && (
-        <div className="flex items-center gap-2 px-3 py-2 bg-white border-t border-gray-100 flex-shrink-0"
-          style={{ paddingBottom: "calc(10px + env(safe-area-inset-bottom,0px))", WebkitUserSelect: "none", userSelect: "none", WebkitTouchCallout: "none" }}>
-          {/* Timer */}
-          <div className="flex items-center gap-2 flex-shrink-0 pl-1">
-            <span className="w-2.5 h-2.5 rounded-full bg-red-500 flex-shrink-0" style={{ animation: "pulse 1s infinite" }} />
-            <span className="text-red-600 font-mono text-sm font-bold">{fmtTime(recordMs)}</span>
-          </div>
-          {/* Slide hint */}
-          <div className="flex-1 flex items-center justify-center">
-            <span className="text-gray-400 text-xs">← Slide to cancel</span>
-          </div>
-          {/* Lock hint + mic */}
-          <div className="flex flex-col items-center flex-shrink-0">
-            <svg className="w-3.5 h-3.5 text-[#032EA1] mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
-            </svg>
-            <span className="text-[9px] text-[#032EA1] font-semibold leading-none mb-1">LOCK</span>
-            <button
-              onMouseDown={micDown} onTouchStart={micDown}
-              onContextMenu={e => e.preventDefault()}
-              className="w-12 h-12 rounded-full flex items-center justify-center shadow-lg"
-              style={{ background: "linear-gradient(135deg,#E00025,#8B0020)", touchAction: "none", WebkitUserSelect: "none", userSelect: "none" }}>
-              <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-              </svg>
+            <button onClick={stopRecording}
+              className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 shadow active:scale-95 transition-transform"
+              style={{ background: "linear-gradient(135deg,#032EA1,#8B0020)" }}>
+              <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
             </button>
           </div>
-        </div>
+        ) : (
+          /* HOLD mode — mic follows finger, lock icon fades in above */
+          <div className="flex items-center gap-2 px-3 bg-white border-t border-gray-100 flex-shrink-0"
+            style={{
+              paddingTop: 8,
+              paddingBottom: "calc(10px + env(safe-area-inset-bottom,0px))",
+              WebkitUserSelect: "none", userSelect: "none", WebkitTouchCallout: "none",
+              overflow: "visible",
+            }}>
+            {/* Timer */}
+            <div className="flex items-center gap-2 flex-shrink-0 pl-1">
+              <span className="w-2.5 h-2.5 rounded-full bg-red-500 flex-shrink-0" style={{ animation: "pulse 1s infinite" }} />
+              <span className="text-red-600 font-mono text-sm font-bold">{fmtTime(recordMs)}</span>
+            </div>
+            {/* Slide to cancel — drifts left and fades as user drags */}
+            <div className="flex-1 flex items-center justify-center overflow-hidden">
+              <span className="text-gray-400 text-xs whitespace-nowrap" style={{
+                opacity: Math.max(0, 1 + voiceDrag.dx / 70),
+                transform: `translateX(${Math.min(0, voiceDrag.dx * 0.25)}px)`,
+              }}>← Slide to cancel</span>
+            </div>
+            {/* Lock + mic container — overflows upward */}
+            <div className="flex-shrink-0 relative" style={{ width: 52, height: 52, overflow: "visible" }}>
+              {/* Lock target — fades in and turns blue as mic approaches */}
+              {(() => {
+                const progress = Math.min(1, Math.max(0, -voiceDrag.dy / 50));
+                const near     = voiceDrag.dy < -55;
+                return (
+                  <div style={{
+                    position: "absolute",
+                    bottom: 60,
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                    opacity: progress,
+                    pointerEvents: "none",
+                    transition: "opacity 0.05s",
+                  }}>
+                    <div style={{
+                      width: 38, height: 38, borderRadius: "50%",
+                      background: near ? "linear-gradient(135deg,#032EA1,#1a4fcc)" : "#f3f4f6",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      boxShadow: near ? "0 4px 16px rgba(3,46,161,0.35)" : "0 2px 8px rgba(0,0,0,0.1)",
+                      transition: "background 0.15s, box-shadow 0.15s",
+                    }}>
+                      <svg style={{ width: 18, height: 18, color: near ? "white" : "#9ca3af", transition: "color 0.15s" }}
+                        fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      </svg>
+                    </div>
+                  </div>
+                );
+              })()}
+              {/* Mic button — smoothly follows finger upward */}
+              <button
+                onMouseDown={micDown} onTouchStart={micDown}
+                onContextMenu={e => e.preventDefault()}
+                style={{
+                  position: "absolute", bottom: 0, left: 0,
+                  width: 52, height: 52, borderRadius: "50%",
+                  background: "linear-gradient(135deg,#E00025,#8B0020)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  boxShadow: "0 4px 16px rgba(224,0,37,0.4)",
+                  transform: `translateY(${Math.max(-72, Math.min(0, voiceDrag.dy))}px)`,
+                  touchAction: "none", WebkitUserSelect: "none", userSelect: "none",
+                }}>
+                <svg style={{ width: 22, height: 22, color: "white" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        )
       )}
 
       {/* ── Normal input bar ── */}
