@@ -345,6 +345,14 @@ function ChatView({ contact, onBack, t }) {
 
   const fmtTime = ms => { const s=Math.floor(ms/1000); return `${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`; };
 
+  const cancelRecording = () => {
+    clearInterval(timerRef.current);
+    cancelRef.current = true;
+    if (mediaRef.current?.state !== "inactive") { try { mediaRef.current.stop(); } catch {} }
+    mediaRef.current = null; chunksRef.current = [];
+    setIsRecording(false); setRecCancelled(false); setRecordMs(0);
+  };
+
   /* ── render message ── */
   const renderMsg = (msg, idx) => {
     const isMe    = msg.from === "me";
@@ -537,22 +545,33 @@ function ChatView({ contact, onBack, t }) {
       {/* ── Recording bar ── */}
       {isRecording && (
         <div className="flex items-center gap-3 px-4 bg-white border-t border-gray-100 flex-shrink-0 z-30"
-          style={{ height:"calc(env(safe-area-inset-bottom,0px) + 62px)",
+          style={{ height:"calc(env(safe-area-inset-bottom,0px) + 66px)",
             paddingBottom:"env(safe-area-inset-bottom,0px)" }}>
-          <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full flex-shrink-0"
+
+          {/* Delete button */}
+          <button onClick={cancelRecording}
+            className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0"
+            style={{ background:"#fee2e2", WebkitTapHighlightColor:"transparent" }}>
+            <svg className="w-5 h-5" style={{ color:"#ef4444" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </button>
+
+          {/* Timer + slide hint */}
+          <div className="flex-1 flex items-center gap-2 min-w-0">
+            <span className="w-2.5 h-2.5 rounded-full flex-shrink-0"
               style={{ background:recCancelled?"#9ca3af":"#ef4444",
                 animation:recCancelled?"none":"pulse 1s infinite" }} />
-            <span className="font-mono text-sm font-bold"
+            <span className="font-mono text-sm font-bold flex-shrink-0"
               style={{ color:recCancelled?"#9ca3af":"#ef4444" }}>{fmtTime(recordMs)}</span>
-          </div>
-          <div className="flex-1 flex items-center justify-center">
-            <span className="text-xs font-medium" style={{ color:recCancelled?"#ef4444":"#9ca3af" }}>
-              {recCancelled ? "Release to cancel" : "◀  Slide to cancel"}
+            <span className="text-xs truncate" style={{ color:recCancelled?"#ef4444":"#9ca3af" }}>
+              {recCancelled ? "Release to cancel" : "◀ Slide to cancel"}
             </span>
           </div>
-          <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
-            style={{ background:recCancelled?"#f3f4f6":"linear-gradient(135deg,#E00025,#8B0020)",
+
+          {/* Mic pulse indicator */}
+          <div className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0"
+            style={{ background:recCancelled?"#f3f4f6":"linear-gradient(135deg,#032EA1,#8B0020)",
               animation:recCancelled?"none":"pulse 1.2s infinite", transition:"background .2s" }}>
             <svg className="w-5 h-5" style={{ color:recCancelled?"#9ca3af":"white" }}
               fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
