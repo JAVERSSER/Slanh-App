@@ -47,40 +47,118 @@ function mkMsg(from, extras = {}) {
   };
 }
 
-/* ── Voice bubble ─────────────────────────── */
-function VoiceBubble({ src, duration, isMe }) {
-  const [playing, setPlaying] = useState(false);
+/* ── Voice bubble (Telegram style) ───────── */
+const WAVEFORM = [3,5,8,5,10,14,9,12,7,15,11,8,13,6,10,12,8,5,9,11,14,10,7,12,8,6,10,9,5,7];
+
+function VoiceBubble({ src, duration, isMe, msgId, playingId, setPlayingId, onEnded }) {
+  const playing  = playingId === msgId;
   const [progress, setProgress] = useState(0);
+  const [current,  setCurrent]  = useState(0);
   const audioRef = useRef(null);
-  const toggle = () => {
+  const rafRef   = useRef(null);
+
+  // Stop and clean up when component unmounts (navigating away from Messages)
+  useEffect(() => {
+    return () => {
+      cancelAnimationFrame(rafRef.current);
+      const a = audioRef.current;
+      if (a) { a.pause(); a.src = ""; }
+    };
+  }, []);
+
+  // Control play/pause whenever playingId changes
+  useEffect(() => {
     const a = audioRef.current; if (!a) return;
-    if (playing) { a.pause(); setPlaying(false); } else { a.play(); setPlaying(true); }
+    if (playing) a.play().catch(() => {});
+    else         a.pause();
+  }, [playing]);
+
+  // requestAnimationFrame loop — silky smooth 60fps timer
+  useEffect(() => {
+    if (!playing) { cancelAnimationFrame(rafRef.current); return; }
+    const tick = () => {
+      const a = audioRef.current;
+      if (a?.duration) { setProgress(a.currentTime / a.duration); setCurrent(a.currentTime); }
+      rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [playing]);
+
+  const toggle = () => setPlayingId(playing ? null : msgId);
+
+  const handleEnded = () => {
+    cancelAnimationFrame(rafRef.current);
+    setProgress(0); setCurrent(0);
+    onEnded(msgId); // triggers auto-play of next voice
   };
-  const fmt = s => `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,"0")}`;
+
+  const seek = e => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const pct  = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+    const a    = audioRef.current;
+    if (a?.duration) { a.currentTime = pct * a.duration; setProgress(pct); setCurrent(a.currentTime); }
+  };
+
+  const fmt    = s => `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,"0")}`;
+  const accent  = isMe ? "rgba(255,255,255,0.95)" : "#032EA1";
+  const faded   = isMe ? "rgba(255,255,255,0.28)" : "#d1d5db";
+  const timeTxt = isMe ? "rgba(255,255,255,0.65)" : "#9ca3af";
+
   return (
-    <div className="flex items-center gap-3 px-3 py-2.5 rounded-2xl min-w-[160px]"
-      style={{ background: isMe ? "linear-gradient(135deg,#032EA1,#1a4fcc)" : "white",
-        borderRadius: isMe ? "20px 20px 4px 20px" : "20px 20px 20px 4px" }}>
-      <audio ref={audioRef} src={src}
-        onTimeUpdate={() => { const a=audioRef.current; if(a?.duration) setProgress(a.currentTime/a.duration); }}
-        onEnded={() => { setPlaying(false); setProgress(0); }} />
+    <div className="flex items-center gap-3 px-3 py-3"
+      style={{
+        background:   isMe ? "linear-gradient(135deg,#032EA1,#1a4fcc)" : "white",
+        borderRadius: isMe ? "20px 20px 4px 20px" : "20px 20px 20px 4px",
+        minWidth: 230, maxWidth: 280,
+        boxShadow: isMe ? "none" : "0 2px 10px rgba(0,0,0,0.08)",
+      }}>
+      <audio ref={audioRef} src={src} onEnded={handleEnded} />
+
+      {/* Play / Pause */}
       <button onClick={toggle}
-        className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${isMe?"bg-white/20":"bg-[#032EA1]"}`}
-        style={{ WebkitTapHighlightColor:"transparent" }}>
+        className="flex-shrink-0 flex items-center justify-center rounded-full"
+        style={{
+          width: 42, height: 42,
+          background: isMe ? "rgba(255,255,255,0.22)" : "linear-gradient(135deg,#032EA1,#1a4fcc)",
+          boxShadow: isMe ? "none" : "0 2px 8px rgba(3,46,161,0.35)",
+          WebkitTapHighlightColor: "transparent",
+          transition: "transform 0.12s",
+        }}
+        onTouchStart={e => e.currentTarget.style.transform = "scale(0.88)"}
+        onTouchEnd={e   => e.currentTarget.style.transform = "scale(1)"}>
         {playing
-          ? <svg viewBox="0 0 24 24" fill="white" className="w-4 h-4"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
-          : <svg viewBox="0 0 24 24" fill="white" className="w-4 h-4"><path d="M8 5v14l11-7z"/></svg>}
+          ? <svg viewBox="0 0 24 24" fill="white" style={{ width:16, height:16 }}>
+              <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+            </svg>
+          : <svg viewBox="0 0 24 24" fill="white" style={{ width:16, height:16, marginLeft:2 }}>
+              <path d="M8 5v14l11-7z"/>
+            </svg>
+        }
       </button>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-0.5 h-6 mb-1">
-          {[3,5,8,6,10,7,9,5,12,8,6,10,7,9,5,8,6,4,7,5].map((h,i) => (
-            <div key={i} className="w-1 rounded-full flex-shrink-0 transition-colors"
-              style={{ height: h*2, background: i/20<=progress
-                ? (isMe?"rgba(255,255,255,0.9)":"#032EA1")
-                : (isMe?"rgba(255,255,255,0.35)":"#d1d5db") }} />
+
+      {/* Waveform + timer */}
+      <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+        <div className="flex items-center gap-[2.5px] h-9 cursor-pointer" onClick={seek}>
+          {WAVEFORM.map((h, i) => (
+            <div key={i} className="rounded-full flex-shrink-0"
+              style={{
+                width: 3,
+                height: Math.max(4, h * 2.1),
+                background: i / WAVEFORM.length <= progress ? accent : faded,
+              }} />
           ))}
         </div>
-        <span className={`text-[11px] ${isMe?"text-white/70":"text-gray-400"}`}>{fmt(duration||0)}</span>
+        <div className="flex items-center justify-between">
+          <span style={{ fontSize:11, fontWeight:600, color:timeTxt, fontVariantNumeric:"tabular-nums" }}>
+            {fmt(playing ? current : (duration || 0))}
+          </span>
+          {playing && (
+            <span style={{ fontSize:10, color:timeTxt, fontVariantNumeric:"tabular-nums" }}>
+              {fmt(duration || 0)}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -158,6 +236,14 @@ function ChatView({ contact, onBack, t }) {
   const [recordMs, setRecordMs]             = useState(0);
   const [recCancelled, setRecCancelled]     = useState(false);
   const [micDenied, setMicDenied]           = useState(false);
+  const [playingVoiceId, setPlayingVoiceId] = useState(null);
+
+  const playNextVoice = useCallback((currentId) => {
+    const voices = msgs.filter(m => m.type === "voice");
+    const idx    = voices.findIndex(m => m.id === currentId);
+    if (idx >= 0 && idx < voices.length - 1) setPlayingVoiceId(voices[idx + 1].id);
+    else setPlayingVoiceId(null);
+  }, [msgs]);
 
   const inputRef       = useRef(null);
   const bottomRef      = useRef(null);
@@ -387,7 +473,15 @@ function ChatView({ contact, onBack, t }) {
               onTouchMove={cancelLongPress}>
 
               {msg.type==="image" && <ImageBubble src={msg.src} onView={setViewImg} />}
-              {msg.type==="voice" && <VoiceBubble src={msg.src} duration={msg.duration} isMe={isMe} />}
+              {msg.type==="voice" && (
+                <VoiceBubble
+                  src={msg.src} duration={msg.duration} isMe={isMe}
+                  msgId={msg.id}
+                  playingId={playingVoiceId}
+                  setPlayingId={setPlayingVoiceId}
+                  onEnded={playNextVoice}
+                />
+              )}
               {msg.type==="file" && (
                 <div className="flex items-center gap-3 px-4 py-3 rounded-2xl"
                   style={{ background:isMe?"linear-gradient(135deg,#032EA1,#1a4fcc)":"white" }}>
