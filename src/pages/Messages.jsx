@@ -246,24 +246,33 @@ function ChatView({ contact, onBack, t }) {
     setMicDenied(false);
     cancelRef.current     = false;
     shouldSendRef.current = false;
-    micAnchorX.current    = e.touches ? e.touches[0].clientX : e.clientX;
+    micAnchorX.current    = e.clientX;
     recordStartRef.current = Date.now();
     setIsRecording(true); setRecCancelled(false); setRecordMs(0);
     timerRef.current = setInterval(() => setRecordMs(Date.now() - recordStartRef.current), 100);
 
+    const btn = e.currentTarget;
+    const pid = e.pointerId;
+    try { btn.setPointerCapture(pid); } catch {}
+
     const onMove = ev => {
-      const touch = ev.changedTouches?.[0] ?? ev.touches?.[0];
-      const x = touch ? touch.clientX : ev.clientX;
+      const x = ev.clientX;
       const slid = x - micAnchorX.current < -60;
       cancelRef.current = slid;
       setRecCancelled(slid);
     };
+
+    let ended = false;
     const onUp = () => {
-      window.removeEventListener("mousemove",     onMove);
-      window.removeEventListener("touchmove",     onMove);
-      window.removeEventListener("mouseup",       onUp);
+      if (ended) return;
+      ended = true;
+      btn.removeEventListener("pointermove",   onMove);
+      btn.removeEventListener("pointerup",     onUp);
+      btn.removeEventListener("pointercancel", onUp);
+      window.removeEventListener("pointerup",     onUp);
       window.removeEventListener("pointercancel", onUp);
       window.removeEventListener("touchend",      onUp);
+      window.removeEventListener("mouseup",       onUp);
       clearInterval(timerRef.current);
       if (cancelRef.current || Date.now() - recordStartRef.current < 300) {
         cancelRef.current = true;
@@ -275,11 +284,16 @@ function ChatView({ contact, onBack, t }) {
       }
       setIsRecording(false); setRecCancelled(false); setRecordMs(0);
     };
-    window.addEventListener("mousemove",     onMove);
-    window.addEventListener("touchmove",     onMove, { passive: true });
-    window.addEventListener("mouseup",       onUp);
+
+    // Primary: pointer capture on element (slide-to-cancel works in PWA)
+    btn.addEventListener("pointermove",   onMove);
+    btn.addEventListener("pointerup",     onUp);
+    btn.addEventListener("pointercancel", onUp);
+    // Fallback: window listeners catch release if pointer capture fails on iOS PWA
+    window.addEventListener("pointerup",     onUp);
     window.addEventListener("pointercancel", onUp);
     window.addEventListener("touchend",      onUp);
+    window.addEventListener("mouseup",       onUp);
 
     (async () => {
       try {
@@ -618,14 +632,14 @@ function ChatView({ contact, onBack, t }) {
             </button>
           ) : (
             <button
-              onMouseDown={micPointerDown}
-              onTouchStart={micPointerDown}
+              onPointerDown={micPointerDown}
               className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
               style={{
                 background: "#0084ff",
                 touchAction: "none",
                 WebkitTapHighlightColor: "rgba(0,0,0,0)",
                 outline: "none",
+                userSelect: "none",
               }}>
               <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
