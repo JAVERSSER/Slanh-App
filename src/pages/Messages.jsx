@@ -353,13 +353,17 @@ function ChatView({ contact, onBack, t }) {
       cleanup();
       clearInterval(timerRef.current);
       const elapsed = Date.now() - recordStartRef.current;
-      if (elapsed < 300) {
-        doCancel();
+      if (elapsed < 200) {
+        // Quick tap → enter free-recording mode (shows Send + Delete buttons)
+        setVoiceLocked(true);
+        timerRef.current = setInterval(() => {
+          setRecordMs(Date.now() - recordStartRef.current);
+        }, 100);
       } else {
+        // Hold release → auto-send
         if (mediaRef.current && mediaRef.current.state !== "inactive") {
-          mediaRef.current.stop(); // onstop will send the message
+          mediaRef.current.stop(); // onstop sends the message
         } else {
-          // MediaRecorder not ready yet — flag startRecording to stop+send when ready
           shouldSendRef.current = true;
         }
         setIsRecording(false);
@@ -534,13 +538,18 @@ function ChatView({ contact, onBack, t }) {
       {/* ── Recording bar ── */}
       {isRecording && (
         voiceLocked ? (
-          /* LOCKED mode — slides in */
+          /* LOCKED mode — slides in with delete + send buttons */
           <div className="flex items-center gap-3 px-4 py-3 bg-white border-t border-gray-100 flex-shrink-0"
             style={{ paddingBottom: "calc(8px + env(safe-area-inset-bottom,0px))", animation: "slideUp2 .18s cubic-bezier(.22,1,.36,1)" }}>
+            {/* Delete button */}
             <button onClick={cancelRecording}
-              className="h-11 px-4 rounded-2xl bg-gray-100 flex items-center justify-center flex-shrink-0 active:scale-95 transition-transform">
-              <span className="text-gray-600 text-sm font-semibold">Cancel</span>
+              className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 active:scale-90 transition-transform"
+              style={{ background: "#fee2e2" }}>
+              <svg className="w-5 h-5" style={{ color: "#ef4444" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
             </button>
+            {/* Timer + waveform */}
             <div className="flex-1 flex items-center gap-2 bg-red-50 rounded-2xl px-3 h-11">
               <span className="w-2.5 h-2.5 rounded-full bg-red-500 flex-shrink-0" style={{ animation: "pulse 1s infinite" }} />
               <span className="text-red-600 font-mono text-sm font-bold flex-shrink-0">{fmtTime(recordMs)}</span>
@@ -548,8 +557,9 @@ function ChatView({ contact, onBack, t }) {
                 <div className="h-full bg-red-400 rounded-full" style={{ width: `${Math.min(Math.floor(recordMs / 1000) * 2, 100)}%`, transition: "width 0.5s linear" }} />
               </div>
             </div>
+            {/* Send button */}
             <button onClick={stopRecording}
-              className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 shadow active:scale-95 transition-transform"
+              className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 shadow active:scale-90 transition-transform"
               style={{ background: "linear-gradient(135deg,#032EA1,#8B0020)" }}>
               <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
             </button>
