@@ -159,15 +159,15 @@ function ChatView({ contact, onBack, t }) {
   const [viewImg, setViewImg]           = useState(null);
   // Voice recording
   const [isRecording, setIsRecording]   = useState(false);
-  const [recordSecs, setRecordSecs]     = useState(0);
+  const [recordMs, setRecordMs]         = useState(0);
   const [voiceLocked, setVoiceLocked]   = useState(false);
   const [voiceDrag, setVoiceDrag]       = useState({ dx: 0, dy: 0 });
-  const mediaRef    = useRef(null);
-  const chunksRef   = useRef([]);
-  const timerRef    = useRef(null);
-  const micAnchor   = useRef({ x: 0, y: 0 });
-  const recSecsRef  = useRef(0);
-  const cancelRef   = useRef(false);
+  const mediaRef       = useRef(null);
+  const chunksRef      = useRef([]);
+  const timerRef       = useRef(null);
+  const micAnchor      = useRef({ x: 0, y: 0 });
+  const recordStartRef = useRef(0);
+  const cancelRef      = useRef(false);
   const typingTimer    = useRef(null);
   const bottomRef      = useRef(null);
   const lpTimer        = useRef(null);   // long-press timer for reactions
@@ -238,40 +238,35 @@ function ChatView({ contact, onBack, t }) {
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      // User released before mic permission resolved — abort
       if (cancelRef.current) { stream.getTracks().forEach(t => t.stop()); return; }
       const mr = new MediaRecorder(stream);
       chunksRef.current = [];
-      recSecsRef.current = 0;
-      mr.ondataavailable = e => chunksRef.current.push(e.data);
+      mr.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
       mr.onstop = () => {
         stream.getTracks().forEach(t => t.stop());
         if (cancelRef.current) { chunksRef.current = []; return; }
+        const durationSecs = Math.round((Date.now() - recordStartRef.current) / 1000);
         const blob = new Blob(chunksRef.current, { type: "audio/webm" });
         const url  = URL.createObjectURL(blob);
-        setMsgs(p => [...p, mkMsg("me", { type: "voice", src: url, duration: recSecsRef.current })]);
-        setRecordSecs(0);
-        recSecsRef.current = 0;
+        setMsgs(p => [...p, mkMsg("me", { type: "voice", src: url, duration: durationSecs })]);
+        setRecordMs(0);
         fakeReply();
       };
       mr.start();
       mediaRef.current = mr;
-      setIsRecording(true);
-      setVoiceLocked(false);
-      setVoiceDrag({ dx: 0, dy: 0 });
-      timerRef.current = setInterval(() => {
-        recSecsRef.current += 1;
-        setRecordSecs(s => s + 1);
-      }, 1000);
     } catch {
+      clearInterval(timerRef.current);
+      setIsRecording(false);
+      setRecordMs(0);
       alert("Microphone permission denied");
     }
   };
 
   const stopRecording = () => {
-    if (!mediaRef.current || mediaRef.current.state === "inactive") return;
-    mediaRef.current.stop();
     clearInterval(timerRef.current);
+    if (mediaRef.current && mediaRef.current.state !== "inactive") {
+      mediaRef.current.stop();
+    }
     setIsRecording(false);
     setVoiceLocked(false);
     setVoiceDrag({ dx: 0, dy: 0 });
@@ -279,17 +274,16 @@ function ChatView({ contact, onBack, t }) {
 
   const cancelRecording = () => {
     cancelRef.current = true;
-    if (mediaRef.current) {
-      try { mediaRef.current.stop(); } catch {}
-      mediaRef.current = null;
-    }
     clearInterval(timerRef.current);
+    if (mediaRef.current && mediaRef.current.state !== "inactive") {
+      try { mediaRef.current.stop(); } catch {}
+    }
+    mediaRef.current = null;
     chunksRef.current = [];
-    recSecsRef.current = 0;
     setIsRecording(false);
     setVoiceLocked(false);
     setVoiceDrag({ dx: 0, dy: 0 });
-    setRecordSecs(0);
+    setRecordMs(0);
   };
 
   const micDown = (e) => {
@@ -297,6 +291,18 @@ function ChatView({ contact, onBack, t }) {
     const pt = e.touches ? e.touches[0] : e;
     micAnchor.current = { x: pt.clientX, y: pt.clientY };
     cancelRef.current = false;
+
+    // Show recording UI immediately — don't wait for getUserMedia
+    recordStartRef.current = Date.now();
+    setIsRecording(true);
+    setVoiceLocked(false);
+    setVoiceDrag({ dx: 0, dy: 0 });
+    setRecordMs(0);
+
+    // 100ms interval for smooth timer display
+    timerRef.current = setInterval(() => {
+      setRecordMs(Date.now() - recordStartRef.current);
+    }, 100);
 
     let done = false;
 
@@ -309,11 +315,16 @@ function ChatView({ contact, onBack, t }) {
 
     const doCancel = () => {
       cancelRef.current = true;
-      if (mediaRef.current) { try { mediaRef.current.stop(); } catch {} mediaRef.current = null; }
       clearInterval(timerRef.current);
-      chunksRef.current = []; recSecsRef.current = 0;
-      setIsRecording(false); setVoiceLocked(false);
-      setVoiceDrag({ dx: 0, dy: 0 }); setRecordSecs(0);
+      if (mediaRef.current && mediaRef.current.state !== "inactive") {
+        try { mediaRef.current.stop(); } catch {}
+      }
+      mediaRef.current = null;
+      chunksRef.current = [];
+      setIsRecording(false);
+      setVoiceLocked(false);
+      setVoiceDrag({ dx: 0, dy: 0 });
+      setRecordMs(0);
     };
 
     const onMove = (ev) => {
@@ -323,23 +334,28 @@ function ChatView({ contact, onBack, t }) {
       const dy = p.clientY - micAnchor.current.y;
       setVoiceDrag({ dx, dy });
       if (dx < -80)      { done = true; cleanup(); doCancel(); }
-      else if (dy < -80) { done = true; cleanup(); setVoiceLocked(true); }
+      else if (dy < -80) { done = true; cleanup(); clearInterval(timerRef.current); setVoiceLocked(true); }
     };
 
     const onUp = () => {
       if (done) return;
       done = true;
       cleanup();
-      if (recSecsRef.current < 1) {
+      clearInterval(timerRef.current);
+      const elapsed = Date.now() - recordStartRef.current;
+      if (elapsed < 300) {
+        // Too short — cancel silently
         doCancel();
       } else {
-        if (mediaRef.current && mediaRef.current.state !== "inactive") mediaRef.current.stop();
-        clearInterval(timerRef.current);
-        setIsRecording(false); setVoiceLocked(false); setVoiceDrag({ dx: 0, dy: 0 });
+        if (mediaRef.current && mediaRef.current.state !== "inactive") {
+          mediaRef.current.stop(); // onstop sends the message
+        }
+        setIsRecording(false);
+        setVoiceLocked(false);
+        setVoiceDrag({ dx: 0, dy: 0 });
       }
     };
 
-    // Attach listeners NOW — before the async getUserMedia — so we never miss a release
     window.addEventListener("mousemove", onMove);
     window.addEventListener("touchmove", onMove, { passive: false });
     window.addEventListener("mouseup",   onUp);
@@ -348,7 +364,11 @@ function ChatView({ contact, onBack, t }) {
     startRecording();
   };
 
-  const fmtTime = (s) => `${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;
+  // Takes milliseconds, displays as M:SS
+  const fmtTime = (ms) => {
+    const s = Math.floor(ms / 1000);
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+  };
 
   /* ── render message ── */
   const renderMsg = (msg, idx) => {
@@ -511,9 +531,9 @@ function ChatView({ contact, onBack, t }) {
           {/* Timer + waveform */}
           <div className="flex-1 flex items-center gap-2 bg-red-50 rounded-2xl px-3 h-11">
             <span className="w-2.5 h-2.5 rounded-full bg-red-500 flex-shrink-0" style={{ animation: "pulse 1s infinite" }} />
-            <span className="text-red-600 font-mono text-sm font-bold flex-shrink-0">{fmtTime(recordSecs)}</span>
+            <span className="text-red-600 font-mono text-sm font-bold flex-shrink-0">{fmtTime(recordMs)}</span>
             <div className="flex-1 h-1.5 bg-red-200 rounded-full overflow-hidden">
-              <div className="h-full bg-red-400 rounded-full transition-all" style={{ width: `${Math.min(recordSecs * 2, 100)}%` }} />
+              <div className="h-full bg-red-400 rounded-full transition-all" style={{ width: `${Math.min(Math.floor(recordMs / 1000) * 2, 100)}%` }} />
             </div>
           </div>
           {/* Send */}
@@ -532,7 +552,7 @@ function ChatView({ contact, onBack, t }) {
           {/* Timer */}
           <div className="flex items-center gap-2 flex-shrink-0 pl-1">
             <span className="w-2.5 h-2.5 rounded-full bg-red-500 flex-shrink-0" style={{ animation: "pulse 1s infinite" }} />
-            <span className="text-red-600 font-mono text-sm font-bold">{fmtTime(recordSecs)}</span>
+            <span className="text-red-600 font-mono text-sm font-bold">{fmtTime(recordMs)}</span>
           </div>
           {/* Slide hint */}
           <div className="flex-1 flex items-center justify-center">
