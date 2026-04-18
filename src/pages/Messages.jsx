@@ -35,100 +35,156 @@ function mkMsg(from, extras = {}) {
     time: new Date().toLocaleTimeString("en-US", { hour:"2-digit", minute:"2-digit", hour12: false }),
     status: "sent",
     reaction: null,
-    type: "text", // text | image | voice | file
+    type: "text",
     ...extras,
   };
 }
+
+/* ── Icon helpers ─────────────────────────── */
+const IcoPhone = () => (
+  <svg width={18} height={18} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+  </svg>
+);
+const IcoVideo = () => (
+  <svg width={18} height={18} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.649v6.702a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+  </svg>
+);
+const IcoMic = ({ color = "currentColor" }) => (
+  <svg width={20} height={20} fill="none" viewBox="0 0 24 24" stroke={color} strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+  </svg>
+);
+const IcoSend = () => (
+  <svg width={20} height={20} viewBox="0 0 24 24" fill="currentColor">
+    <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+  </svg>
+);
 
 /* ── Voice bubble ─────────────────────────── */
 function VoiceBubble({ src, duration, isMe }) {
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const audioRef = useRef(null);
-
   const toggle = () => {
     const a = audioRef.current;
     if (!a) return;
     if (playing) { a.pause(); setPlaying(false); }
-    else { a.play(); setPlaying(true); }
+    else         { a.play();  setPlaying(true);  }
   };
   const onTimeUpdate = () => {
     const a = audioRef.current;
     if (a && a.duration) setProgress(a.currentTime / a.duration);
   };
   const onEnded = () => { setPlaying(false); setProgress(0); };
-  const fmt = (s) => `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,"0")}`;
+  const fmt = s => `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,"0")}`;
 
   return (
-    <div className={`flex items-center gap-3 px-3 py-2.5 rounded-2xl min-w-[160px] ${isMe ? "bubble-me" : "bubble-them"}`}
-      style={{ background: isMe ? "linear-gradient(135deg,#032EA1,#1a4fcc)" : "white", borderRadius: isMe ? "20px 20px 4px 20px" : "20px 20px 20px 4px" }}>
+    <div style={{
+      display: "flex", alignItems: "center", gap: 10,
+      padding: "10px 12px", borderRadius: 20, minWidth: 180,
+      background: isMe ? "linear-gradient(135deg,#032EA1,#1a4fcc)" : "#E4E6EB",
+    }}>
       <audio ref={audioRef} src={src} onTimeUpdate={onTimeUpdate} onEnded={onEnded} />
-      <button onClick={toggle}
-        className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${isMe ? "bg-white/20" : "bg-[#032EA1]"}`}>
+      <button onClick={toggle} style={{
+        width: 34, height: 34, borderRadius: "50%", flexShrink: 0,
+        background: isMe ? "rgba(255,255,255,0.2)" : "#032EA1",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        WebkitTapHighlightColor: "transparent",
+      }}>
         {playing
-          ? <span className={`text-base ${isMe ? "text-white" : "text-white"}`}>⏸</span>
-          : <svg viewBox="0 0 24 24" fill="currentColor" className={`w-4 h-4 ${isMe ? "text-white" : "text-white"}`}><path d="M8 5v14l11-7z"/></svg>
+          ? <svg width={14} height={14} fill={isMe?"white":"white"} viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+          : <svg width={14} height={14} fill={isMe?"white":"white"} viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
         }
       </button>
-      <div className="flex-1 min-w-0">
-        {/* Waveform bars */}
-        <div className="flex items-center gap-0.5 h-6 mb-1">
-          {Array.from({ length: 20 }).map((_, i) => {
-            const h = [3,5,8,6,10,7,9,5,12,8,6,10,7,9,5,8,6,4,7,5][i];
-            const filled = i / 20 <= progress;
-            return <div key={i} className="w-1 rounded-full flex-shrink-0 transition-colors"
-              style={{ height: h*2, background: filled ? (isMe ? "rgba(255,255,255,0.9)" : "#032EA1") : (isMe ? "rgba(255,255,255,0.35)" : "#d1d5db") }} />;
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 2, height: 24, marginBottom: 4 }}>
+          {Array.from({ length: 24 }).map((_, i) => {
+            const h = [2,3,5,4,7,5,6,3,8,6,4,7,5,6,3,5,4,3,5,4,6,3,4,3][i];
+            const filled = i / 24 <= progress;
+            return (
+              <div key={i} style={{
+                width: 3, borderRadius: 2, flexShrink: 0,
+                height: h * 2.5,
+                background: filled
+                  ? (isMe ? "rgba(255,255,255,0.9)" : "#032EA1")
+                  : (isMe ? "rgba(255,255,255,0.3)" : "#BCC0C8"),
+              }} />
+            );
           })}
         </div>
-        <span className={`text-[11px] ${isMe ? "text-white/70" : "text-gray-400"}`}>{fmt(duration || 0)}</span>
+        <span style={{ fontSize: 11, color: isMe ? "rgba(255,255,255,0.7)" : "#65676B" }}>
+          {fmt(duration || 0)}
+        </span>
       </div>
     </div>
   );
 }
 
 /* ── Image bubble ─────────────────────────── */
-function ImageBubble({ src, isMe, onView }) {
+function ImageBubble({ src, onView }) {
   return (
-    <button onClick={() => onView(src)}
-      className="rounded-2xl overflow-hidden shadow-sm active:scale-95 transition-transform"
-      style={{ maxWidth: 200, display: "block" }}>
-      <img src={src} alt="" className="w-full object-cover" style={{ maxHeight: 220 }} />
+    <button onClick={() => onView(src)} style={{
+      borderRadius: 16, overflow: "hidden", display: "block",
+      maxWidth: 220, boxShadow: "0 1px 4px rgba(0,0,0,0.12)",
+      WebkitTapHighlightColor: "transparent",
+    }}>
+      <img src={src} alt="" style={{ width: "100%", maxHeight: 240, objectFit: "cover", display: "block" }} />
     </button>
   );
 }
 
-
 /* ── Full-screen image viewer ─────────────── */
 function ImageViewer({ src, onClose }) {
   return (
-    <div className="fixed inset-0 z-50 bg-black flex items-center justify-center" onClick={onClose}>
-      <button className="absolute top-12 right-4 w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white text-xl">✕</button>
-      <img src={src} alt="" className="max-w-full max-h-full object-contain" />
+    <div onClick={onClose} style={{
+      position: "fixed", inset: 0, zIndex: 50,
+      background: "rgba(0,0,0,0.95)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+    }}>
+      <button style={{
+        position: "absolute", top: "max(48px, calc(env(safe-area-inset-top,0px)+12px))", right: 16,
+        width: 36, height: 36, borderRadius: "50%",
+        background: "rgba(255,255,255,0.15)",
+        color: "white", fontSize: 18,
+        display: "flex", alignItems: "center", justifyContent: "center",
+      }}>✕</button>
+      <img src={src} alt="" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} />
     </div>
   );
 }
 
-/* ─── Attachment Tray ────────────────────── */
+/* ── Attachment Tray ─────────────────────── */
 function AttachTray({ onImage, onCamera, onFile, onLocation, onClose }) {
   const items = [
-    { icon: "🖼️", label: "រូបភាព",   labelEn: "Gallery",  action: onImage    },
-    { icon: "📷", label: "ថតរូប",    labelEn: "Camera",   action: onCamera   },
-    { icon: "📄", label: "ឯកសារ",    labelEn: "File",     action: onFile     },
-    { icon: "📍", label: "ទីតាំង",   labelEn: "Location", action: onLocation },
-    { icon: "🎞️", label: "GIF",      labelEn: "GIF",      action: onClose    },
-    { icon: "🎵", label: "តន្ត្រី",   labelEn: "Audio",    action: onClose    },
+    { icon: "🖼️", label: "Gallery",  action: onImage    },
+    { icon: "📷", label: "Camera",   action: onCamera   },
+    { icon: "📄", label: "File",     action: onFile     },
+    { icon: "📍", label: "Location", action: onLocation },
+    { icon: "🎞️", label: "GIF",      action: onClose    },
+    { icon: "🎵", label: "Audio",    action: onClose    },
   ];
   return (
     <>
-      <div className="fixed inset-0 z-30" onClick={onClose} />
-      <div className="absolute bottom-full mb-2 left-0 z-40 bg-white rounded-2xl shadow-xl border border-gray-100 p-4 w-64"
-        style={{ animation: "slideUp2 .2s ease-out" }}>
-        <div className="grid grid-cols-3 gap-3">
+      <div style={{ position: "fixed", inset: 0, zIndex: 30 }} onClick={onClose} />
+      <div style={{
+        position: "absolute", bottom: "calc(100% + 8px)", left: 0, zIndex: 40,
+        background: "white", borderRadius: 16,
+        boxShadow: "0 4px 24px rgba(0,0,0,0.15)",
+        padding: 16, width: 240,
+        animation: "slideUp2 .18s ease-out",
+      }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
           {items.map(item => (
             <button key={item.label} onClick={() => { item.action?.(); onClose(); }}
-              className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-gray-50 hover:bg-blue-50 active:scale-95 transition-all">
-              <span className="text-2xl">{item.icon}</span>
-              <span className="text-[11px] text-gray-600 font-medium">{item.label}</span>
+              style={{
+                display: "flex", flexDirection: "column", alignItems: "center",
+                gap: 6, padding: "12px 8px", borderRadius: 12,
+                background: "#F0F2F5", WebkitTapHighlightColor: "transparent",
+              }}>
+              <span style={{ fontSize: 24 }}>{item.icon}</span>
+              <span style={{ fontSize: 11, color: "#65676B", fontWeight: 500 }}>{item.label}</span>
             </button>
           ))}
         </div>
@@ -145,22 +201,28 @@ function ChatView({ contact, onBack, t }) {
   }, []);
 
   const [msgs, setMsgs] = useState([
-    mkMsg("them", { text: "ជំរាបសួរ! 😊",                         time: "10:00", date: yesterdayISO(), status: "seen" }),
-    mkMsg("me",   { text: "ជំរាបសួរ! ខ្ញុំ​សុខ​សប្បាយ 🙏",         time: "10:01", date: yesterdayISO(), status: "seen" }),
-    mkMsg("them", { text: "អ្នក​នៅ​ភ្នំ​ពេញ​ ឬ?",                    time: "09:15", status: "read" }),
-    mkMsg("me",   { text: "បាទ / ចាស ។ អ្នក​ ៗ?",                  time: "09:17", status: "seen", reaction: "❤️" }),
+    mkMsg("them", { text: "ជំរាបសួរ! 😊",               time: "10:00", date: yesterdayISO(), status: "seen" }),
+    mkMsg("me",   { text: "ជំរាបសួរ! ខ្ញុំ​សុខ​សប្បាយ 🙏", time: "10:01", date: yesterdayISO(), status: "seen" }),
+    mkMsg("them", { text: "អ្នក​នៅ​ភ្នំ​ពេញ​ ឬ?",            time: "09:15", status: "read" }),
+    mkMsg("me",   { text: "បាទ / ចាស ។ អ្នក​ ៗ?",          time: "09:17", status: "seen", reaction: "❤️" }),
   ]);
-  const [input, setInput]               = useState("");
-  const [typing, setTyping]             = useState(false);
+  const [input, setInput]                   = useState("");
+  const [typing, setTyping]                 = useState(false);
   const [reactionTarget, setReactionTarget] = useState(null);
-  const [replyTo, setReplyTo]           = useState(null);
-  const [showAttach, setShowAttach]     = useState(false);
-  const inputRef = useRef(null);
-  const [viewImg, setViewImg]           = useState(null);
-  // Voice recording
-  const [isRecording, setIsRecording] = useState(false);
-  const [recordMs, setRecordMs]       = useState(0);
-  const [recCancelled, setRecCancelled] = useState(false); // visual feedback on cancel
+  const [replyTo, setReplyTo]               = useState(null);
+  const [showAttach, setShowAttach]         = useState(false);
+  const [viewImg, setViewImg]               = useState(null);
+  const [isRecording, setIsRecording]       = useState(false);
+  const [recordMs, setRecordMs]             = useState(0);
+  const [recCancelled, setRecCancelled]     = useState(false);
+
+  const inputRef       = useRef(null);
+  const bottomRef      = useRef(null);
+  const lpTimer        = useRef(null);
+  const typingTimer    = useRef(null);
+  const imgInputRef    = useRef(null);
+  const camInputRef    = useRef(null);
+  const fileInputRef   = useRef(null);
   const mediaRef       = useRef(null);
   const chunksRef      = useRef([]);
   const timerRef       = useRef(null);
@@ -168,21 +230,15 @@ function ChatView({ contact, onBack, t }) {
   const cancelRef      = useRef(false);
   const shouldSendRef  = useRef(false);
   const micAnchorX     = useRef(0);
-  const typingTimer    = useRef(null);
-  const bottomRef      = useRef(null);
-  const lpTimer        = useRef(null);   // long-press timer for reactions
-  // Hidden file inputs
-  const imgInputRef  = useRef(null);
-  const camInputRef  = useRef(null);
-  const fileInputRef = useRef(null);
 
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs, typing]);
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [msgs, typing]);
 
   /* ── send text ── */
   const send = useCallback(() => {
     if (!input.trim()) return;
-    const msg = mkMsg("me", { text: input.trim(), ...(replyTo ? { replyTo } : {}) });
-    setMsgs(p => [...p, msg]);
+    setMsgs(p => [...p, mkMsg("me", { text: input.trim(), ...(replyTo ? { replyTo } : {}) })]);
     setInput(""); setReplyTo(null);
     fakeReply();
   }, [input, replyTo]);
@@ -192,18 +248,15 @@ function ChatView({ contact, onBack, t }) {
     clearTimeout(typingTimer.current);
     typingTimer.current = setTimeout(() => {
       setTyping(false);
-      setMsgs(p => [...p, mkMsg("them", { text: ["😊 អរគុណ!","មែន​ទែន?","ល្អ​ណាស់ 🙏","🇰🇭❤️"][Math.floor(Math.random()*4)] })]);
+      setMsgs(p => [...p, mkMsg("them", {
+        text: ["😊 អរគុណ!","មែន​ទែន?","ល្អ​ណាស់ 🙏","🇰🇭❤️"][Math.floor(Math.random()*4)],
+      })]);
     }, 1500);
   };
 
-  /* ── long-press to react ── */
-  const startLongPress = (id) => {
-    lpTimer.current = setTimeout(() => {
-      setReactionTarget(id);
-      if (navigator.vibrate) navigator.vibrate(30);
-    }, 420);
-  };
-  const cancelLongPress = () => clearTimeout(lpTimer.current);
+  /* ── long-press react ── */
+  const startLP = id => { lpTimer.current = setTimeout(() => { setReactionTarget(id); navigator.vibrate?.(30); }, 420); };
+  const stopLP  = ()  => clearTimeout(lpTimer.current);
 
   /* ── reactions ── */
   const setReaction = (id, emoji) => {
@@ -211,98 +264,71 @@ function ChatView({ contact, onBack, t }) {
     setReactionTarget(null);
   };
 
-  /* ── image from gallery ── */
-  const handleImageFile = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const url = URL.createObjectURL(file);
-    setMsgs(p => [...p, mkMsg("me", { type: "image", src: url })]);
-    e.target.value = "";
-    fakeReply();
+  /* ── image ── */
+  const handleImageFile = e => {
+    const f = e.target.files?.[0]; if (!f) return;
+    setMsgs(p => [...p, mkMsg("me", { type: "image", src: URL.createObjectURL(f) })]);
+    e.target.value = ""; fakeReply();
   };
 
-  /* ── file attachment ── */
-  const handleFileAttach = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setMsgs(p => [...p, mkMsg("me", {
-      type: "file",
-      fileName: file.name,
-      fileSize: (file.size / 1024).toFixed(1) + " KB",
-    })]);
-    e.target.value = "";
-    fakeReply();
+  /* ── file ── */
+  const handleFileAttach = e => {
+    const f = e.target.files?.[0]; if (!f) return;
+    setMsgs(p => [...p, mkMsg("me", { type: "file", fileName: f.name, fileSize: (f.size/1024).toFixed(1)+" KB" })]);
+    e.target.value = ""; fakeReply();
   };
 
   /* ── voice recording ── */
-  const micPointerDown = (e) => {
+  const micPointerDown = e => {
     e.preventDefault();
     if (isRecording) return;
-    cancelRef.current   = false;
+    cancelRef.current    = false;
     shouldSendRef.current = false;
-    micAnchorX.current  = e.touches ? e.touches[0].clientX : e.clientX;
+    micAnchorX.current   = e.touches ? e.touches[0].clientX : e.clientX;
     recordStartRef.current = Date.now();
     setIsRecording(true);
     setRecCancelled(false);
     setRecordMs(0);
+    timerRef.current = setInterval(() => setRecordMs(Date.now() - recordStartRef.current), 100);
 
-    timerRef.current = setInterval(() => {
-      setRecordMs(Date.now() - recordStartRef.current);
-    }, 100);
-
-    // Slide left > 60px → mark as cancelled
-    const onMove = (ev) => {
+    const onMove = ev => {
       const touch = ev.changedTouches?.[0] ?? ev.touches?.[0];
       const x = touch ? touch.clientX : ev.clientX;
       const slid = x - micAnchorX.current < -60;
       cancelRef.current = slid;
       setRecCancelled(slid);
     };
-
     const onUp = () => {
-      window.removeEventListener("mousemove",    onMove);
-      window.removeEventListener("touchmove",    onMove);
-      window.removeEventListener("mouseup",      onUp);
-      window.removeEventListener("pointercancel",onUp);
-      window.removeEventListener("touchend",     onUp);
+      window.removeEventListener("mousemove",     onMove);
+      window.removeEventListener("touchmove",     onMove);
+      window.removeEventListener("mouseup",       onUp);
+      window.removeEventListener("pointercancel", onUp);
+      window.removeEventListener("touchend",      onUp);
       clearInterval(timerRef.current);
-
       const elapsed  = Date.now() - recordStartRef.current;
-      const doCancel = cancelRef.current || elapsed < 300;
-
-      if (doCancel) {
+      if (cancelRef.current || elapsed < 300) {
         cancelRef.current = true;
-        if (mediaRef.current && mediaRef.current.state !== "inactive") {
-          try { mediaRef.current.stop(); } catch {}
-        }
-        mediaRef.current = null;
-        chunksRef.current = [];
+        if (mediaRef.current?.state !== "inactive") { try { mediaRef.current.stop(); } catch {} }
+        mediaRef.current = null; chunksRef.current = [];
       } else {
-        if (mediaRef.current && mediaRef.current.state !== "inactive") {
-          mediaRef.current.stop(); // onstop sends
-        } else {
-          shouldSendRef.current = true;
-        }
+        if (mediaRef.current?.state !== "inactive") mediaRef.current.stop();
+        else shouldSendRef.current = true;
       }
-      setIsRecording(false);
-      setRecCancelled(false);
-      setRecordMs(0);
+      setIsRecording(false); setRecCancelled(false); setRecordMs(0);
     };
-
     window.addEventListener("mousemove",     onMove);
     window.addEventListener("touchmove",     onMove, { passive: true });
     window.addEventListener("mouseup",       onUp);
     window.addEventListener("pointercancel", onUp);
     window.addEventListener("touchend",      onUp);
 
-    // Start mic async
     (async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         if (cancelRef.current) { stream.getTracks().forEach(t => t.stop()); return; }
         const mr = new MediaRecorder(stream);
         chunksRef.current = [];
-        mr.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+        mr.ondataavailable = ev => { if (ev.data.size > 0) chunksRef.current.push(ev.data); };
         mr.onstop = () => {
           stream.getTracks().forEach(t => t.stop());
           if (cancelRef.current) { chunksRef.current = []; return; }
@@ -311,155 +337,233 @@ function ChatView({ contact, onBack, t }) {
           setMsgs(p => [...p, mkMsg("me", { type: "voice", src: url, duration: dur })]);
           fakeReply();
         };
-        mr.start();
-        mediaRef.current = mr;
+        mr.start(); mediaRef.current = mr;
         if (shouldSendRef.current) { shouldSendRef.current = false; mr.stop(); }
       } catch {
         clearInterval(timerRef.current);
-        setIsRecording(false);
-        setRecordMs(0);
+        setIsRecording(false); setRecordMs(0);
         alert("Microphone permission denied");
       }
     })();
   };
 
-  const fmtTime = (ms) => {
+  const fmtTime = ms => {
     const s = Math.floor(ms / 1000);
-    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+    return `${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;
   };
 
-  /* ── render message ── */
+  /* ── bubble style helpers ── */
+  const isLastInGroup = (idx) => idx === msgs.length - 1 || msgs[idx + 1].from !== msgs[idx].from;
+  const isFirstInGroup = (idx) => idx === 0 || msgs[idx - 1].from !== msgs[idx].from;
+
+  /* ── render one message ── */
   const renderMsg = (msg, idx) => {
-    const isMe = msg.from === "me";
-    const showAv = !isMe && (idx === 0 || msgs[idx-1].from !== "them");
+    const isMe    = msg.from === "me";
+    const isLast  = isLastInGroup(idx);
+    const isFirst = isFirstInGroup(idx);
     const showDate = idx === 0 || msgs[idx-1].date !== msg.date;
+
+    // Messenger-style border radius
+    const r = 18;
+    const small = 4;
+    const borderRadius = isMe
+      ? `${r}px ${isFirst ? r : small}px ${isLast ? small : r}px ${r}px`
+      : `${isFirst ? r : small}px ${r}px ${r}px ${isLast ? small : r}px`;
 
     return (
       <div key={msg.id}>
-        {/* Date separator */}
         {showDate && (
-          <div className="flex items-center justify-center my-3">
-            <span className="bg-gray-200/80 text-gray-500 text-[11px] font-medium px-3 py-1 rounded-full">
-              {formatDateLabel(msg.date)}
-            </span>
+          <div style={{ display: "flex", justifyContent: "center", margin: "12px 0" }}>
+            <span style={{
+              background: "rgba(0,0,0,0.08)", color: "#65676B",
+              fontSize: 11, fontWeight: 500, padding: "3px 10px", borderRadius: 20,
+            }}>{formatDateLabel(msg.date)}</span>
           </div>
         )}
-      <div className={`flex items-end gap-2 ${isMe ? "justify-end" : "justify-start"} mb-1`}>
-        {!isMe && (
-          <img src={contact.avatar} alt=""
-            className="w-7 h-7 rounded-full object-cover flex-shrink-0"
-            style={{ visibility: showAv ? "visible" : "hidden" }} />
-        )}
-        <div style={{ display: "flex", flexDirection: "column", alignItems: isMe ? "flex-end" : "flex-start", maxWidth: "72vw" }}>
-          {/* Reply preview */}
-          {msg.replyTo && (
-            <div className={`text-xs px-3 py-1.5 rounded-xl mb-1 border-l-2 border-[#032EA1] ${isMe ? "bg-blue-50" : "bg-white"} text-gray-400`}>
-              ↩ {(msg.replyTo.text || "📷 Photo").slice(0,40)}
-            </div>
+        <div style={{
+          display: "flex", alignItems: "flex-end", gap: 6,
+          justifyContent: isMe ? "flex-end" : "flex-start",
+          marginBottom: isLast ? 6 : 2,
+        }}>
+          {/* Avatar — show only on last message in a "them" group */}
+          {!isMe && (
+            <img src={contact.avatar} alt="" style={{
+              width: 28, height: 28, borderRadius: "50%", objectFit: "cover",
+              flexShrink: 0, visibility: isLast ? "visible" : "hidden",
+            }} />
           )}
 
-          <div className="relative"
-            onDoubleClick={() => setReactionTarget(msg.id)}
-            onContextMenu={e => { e.preventDefault(); setReactionTarget(msg.id); }}
-            onTouchStart={() => startLongPress(msg.id)}
-            onTouchEnd={cancelLongPress}
-            onTouchMove={cancelLongPress}
-            style={{ WebkitUserSelect: "none", userSelect: "none" }}>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: isMe ? "flex-end" : "flex-start", maxWidth: "72vw" }}>
+            {/* Reply preview */}
+            {msg.replyTo && (
+              <div style={{
+                fontSize: 12, padding: "6px 10px", borderRadius: 10, marginBottom: 4,
+                borderLeft: "3px solid #032EA1",
+                background: isMe ? "rgba(3,46,161,0.08)" : "rgba(0,0,0,0.05)",
+                color: "#65676B",
+              }}>
+                ↩ {(msg.replyTo.text || "📷 Photo").slice(0,40)}
+              </div>
+            )}
 
-            {/* Content */}
-            {msg.type === "image" && <ImageBubble src={msg.src} isMe={isMe} onView={setViewImg} />}
-            {msg.type === "voice" && <VoiceBubble src={msg.src} duration={msg.duration} isMe={isMe} />}
-            {msg.type === "file"  && (
-              <div className={`flex items-center gap-3 px-4 py-3 rounded-2xl ${isMe ? "bubble-me" : "bubble-them"}`}
-                style={isMe ? { background: "linear-gradient(135deg,#032EA1,#1a4fcc)" } : { background: "white" }}>
-                <span className="text-2xl flex-shrink-0">📄</span>
-                <div className="min-w-0">
-                  <p className={`text-sm font-medium truncate ${isMe ? "text-white" : "text-[#1A1A2E]"}`}>{msg.fileName}</p>
-                  <p className={`text-xs ${isMe ? "text-white/60" : "text-gray-400"}`}>{msg.fileSize}</p>
+            {/* Bubble */}
+            <div style={{ position: "relative" }}
+              onDoubleClick={() => setReactionTarget(msg.id)}
+              onContextMenu={e => { e.preventDefault(); setReactionTarget(msg.id); }}
+              onTouchStart={() => startLP(msg.id)}
+              onTouchEnd={stopLP} onTouchMove={stopLP}>
+
+              {msg.type === "image" && <ImageBubble src={msg.src} onView={setViewImg} />}
+              {msg.type === "voice" && <VoiceBubble src={msg.src} duration={msg.duration} isMe={isMe} />}
+              {msg.type === "file" && (
+                <div style={{
+                  display: "flex", alignItems: "center", gap: 10,
+                  padding: "10px 14px", borderRadius,
+                  background: isMe ? "linear-gradient(135deg,#032EA1,#1a4fcc)" : "#E4E6EB",
+                }}>
+                  <span style={{ fontSize: 22, flexShrink: 0 }}>📄</span>
+                  <div style={{ minWidth: 0 }}>
+                    <p style={{ fontSize: 13, fontWeight: 600, color: isMe ? "white" : "#050505", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 140 }}>{msg.fileName}</p>
+                    <p style={{ fontSize: 11, color: isMe ? "rgba(255,255,255,0.65)" : "#65676B" }}>{msg.fileSize}</p>
+                  </div>
+                  <span style={{ fontSize: 16, color: isMe ? "rgba(255,255,255,0.8)" : "#032EA1" }}>⬇</span>
                 </div>
-                <span className={`text-lg flex-shrink-0 ${isMe ? "text-white/80" : "text-[#032EA1]"}`}>⬇</span>
+              )}
+              {(!msg.type || msg.type === "text") && (
+                <div style={{
+                  padding: "8px 14px",
+                  borderRadius,
+                  background: isMe ? "linear-gradient(135deg,#032EA1,#1a4fcc)" : "#E4E6EB",
+                  color: isMe ? "white" : "#050505",
+                  fontSize: 15, lineHeight: "20px",
+                  wordBreak: "break-word",
+                }}>
+                  {msg.text}
+                </div>
+              )}
+
+              {/* Reaction badge */}
+              {msg.reaction && (
+                <span style={{
+                  position: "absolute", bottom: -8, right: 4,
+                  fontSize: 14, background: "white",
+                  borderRadius: 20, padding: "1px 4px",
+                  boxShadow: "0 1px 4px rgba(0,0,0,0.15)",
+                  border: "1px solid rgba(0,0,0,0.06)",
+                }}>{msg.reaction}</span>
+              )}
+
+              {/* Reaction picker */}
+              {reactionTarget === msg.id && (
+                <div style={{
+                  position: "absolute", zIndex: 20,
+                  display: "flex", alignItems: "center", gap: 4,
+                  background: "white", borderRadius: 30,
+                  padding: "8px 12px",
+                  boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
+                  bottom: "calc(100% + 8px)",
+                  [isMe ? "right" : "left"]: 0,
+                  whiteSpace: "nowrap",
+                }}>
+                  {REACTIONS.map(em => (
+                    <button key={em} onClick={ev => { ev.stopPropagation(); setReaction(msg.id, em); }}
+                      style={{ fontSize: 22, WebkitTapHighlightColor: "transparent" }}
+                      className="hover:scale-125 transition-transform">{em}</button>
+                  ))}
+                  <div style={{ width: 1, height: 20, background: "#E4E6EB", margin: "0 4px" }} />
+                  <button onClick={ev => { ev.stopPropagation(); setReplyTo(msg); setReactionTarget(null); }}
+                    style={{ fontSize: 13, color: "#65676B", fontWeight: 600, WebkitTapHighlightColor: "transparent" }}>↩</button>
+                </div>
+              )}
+            </div>
+
+            {/* Time + status (only on last in group) */}
+            {isLast && (
+              <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 3 }}>
+                <span style={{ fontSize: 10, color: "#65676B" }}>{msg.time}</span>
+                {isMe && <span style={{ fontSize: 10, color: "#032EA1" }}>{msg.status === "seen" ? "✓✓" : "✓"}</span>}
               </div>
             )}
-            {(!msg.type || msg.type === "text") && (
-              <div className={isMe ? "bubble-me" : "bubble-them"}
-                style={isMe ? { background: "linear-gradient(135deg,#032EA1,#1a4fcc)" } : {}}>
-                {msg.text}
-              </div>
-            )}
-
-            {/* Reaction badge */}
-            {msg.reaction && (
-              <span className="absolute -bottom-2 right-1 text-sm bg-white rounded-full px-1 shadow border border-gray-100">
-                {msg.reaction}
-              </span>
-            )}
-
-            {/* Reaction + reply picker */}
-            {reactionTarget === msg.id && (
-              <div className="absolute z-20 flex items-center gap-1 bg-white rounded-full px-3 py-1.5 shadow-xl border border-gray-100"
-                style={{ bottom: "calc(100% + 8px)", [isMe ? "right" : "left"]: 0, whiteSpace: "nowrap" }}>
-                {REACTIONS.map(e => (
-                  <button key={e} onClick={ev => { ev.stopPropagation(); setReaction(msg.id, e); }}
-                    className="text-xl hover:scale-125 transition-transform">{e}</button>
-                ))}
-                <div className="w-px h-5 bg-gray-200 mx-1" />
-                <button onClick={ev => { ev.stopPropagation(); setReplyTo(msg); setReactionTarget(null); }}
-                  className="text-gray-500 text-sm font-medium hover:text-[#032EA1]">↩</button>
-              </div>
-            )}
-          </div>
-
-          {/* Time + status */}
-          <div className="flex items-center gap-1 mt-0.5">
-            <span className="text-[10px] text-gray-400">{msg.time}</span>
-            {isMe && <span className="text-[10px] text-[#032EA1]">{msg.status === "seen" ? "✓✓" : "✓"}</span>}
           </div>
         </div>
-      </div>
       </div>
     );
   };
 
   return (
-    <div className="flex flex-col" style={{ height: "100dvh", background: "#F0F2F5",
-        WebkitUserSelect: "none", userSelect: "none", WebkitTouchCallout: "none" }}
+    <div style={{
+      display: "flex", flexDirection: "column",
+      height: "100dvh",
+      background: "#F0F2F5",
+      WebkitUserSelect: "none", userSelect: "none", WebkitTouchCallout: "none",
+      /* Responsive: centered on desktop */
+      maxWidth: 680, margin: "0 auto", width: "100%",
+    }}
       onClick={() => { setReactionTarget(null); setShowAttach(false); }}>
 
       {/* ── Header ── */}
-      <div className="flex items-center gap-3 px-4 pt-12 pb-3 bg-white shadow-sm flex-shrink-0">
-        <button onClick={onBack} className="w-11 h-11 rounded-full bg-gray-100 flex items-center justify-center">
-          <svg className="w-5 h-5 text-[#032EA1]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <div style={{
+        background: "white",
+        paddingTop: "calc(env(safe-area-inset-top, 0px) + 10px)",
+        paddingBottom: 10, paddingLeft: 8, paddingRight: 12,
+        display: "flex", alignItems: "center", gap: 4,
+        boxShadow: "0 1px 0 rgba(0,0,0,0.1)",
+        flexShrink: 0,
+      }}>
+        {/* Back */}
+        <button onClick={onBack} style={{
+          width: 40, height: 40, borderRadius: "50%",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          color: "#032EA1", flexShrink: 0,
+          WebkitTapHighlightColor: "transparent",
+        }}>
+          <svg width={22} height={22} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
           </svg>
         </button>
-        <img src={contact.avatar} alt={contact.nameEn} className="w-10 h-10 rounded-full object-cover" />
-        <div className="flex-1 min-w-0">
-          <p className="font-bold text-[#1A1A2E] text-sm">{contact.name}</p>
-          <p className="text-xs" style={{ color: contact.online ? "#22c55e" : "#9ca3af" }}>
-            {contact.online ? "🟢 Online" : contact.location}
+
+        {/* Avatar + online */}
+        <div style={{ position: "relative", flexShrink: 0 }}>
+          <img src={contact.avatar} alt="" style={{ width: 42, height: 42, borderRadius: "50%", objectFit: "cover" }} />
+          {contact.online && (
+            <span style={{
+              position: "absolute", bottom: 1, right: 1,
+              width: 12, height: 12, borderRadius: "50%",
+              background: "#31A24C", border: "2.5px solid white",
+            }} />
+          )}
+        </div>
+
+        {/* Name */}
+        <div style={{ flex: 1, minWidth: 0, paddingLeft: 8 }}>
+          <p style={{ fontWeight: 700, fontSize: 15, color: "#050505", lineHeight: 1.3 }}>{contact.name}</p>
+          <p style={{ fontSize: 12, color: contact.online ? "#31A24C" : "#65676B", lineHeight: 1.3 }}>
+            {contact.online ? "Active now" : contact.location}
           </p>
         </div>
-        <div className="flex gap-2">
-          <button className="w-11 h-11 rounded-full bg-gray-100 flex items-center justify-center">
-            <svg className="w-5 h-5 text-[#032EA1]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-            </svg>
-          </button>
-          <button className="w-11 h-11 rounded-full bg-gray-100 flex items-center justify-center">
-            <svg className="w-5 h-5 text-[#032EA1]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.649v6.702a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-            </svg>
-          </button>
-        </div>
+
+        {/* Call + Video */}
+        {[IcoPhone, IcoVideo].map((Ico, i) => (
+          <button key={i} style={{
+            width: 38, height: 38, borderRadius: "50%",
+            background: "#E4E6EB",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            color: "#032EA1", flexShrink: 0,
+            WebkitTapHighlightColor: "transparent",
+          }}><Ico /></button>
+        ))}
       </div>
 
       {/* ── Messages ── */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-1">
+      <div style={{ flex: 1, overflowY: "auto", padding: "12px 12px 4px", WebkitOverflowScrolling: "touch" }}>
         {msgs.map(renderMsg)}
         {typing && (
-          <div className="flex items-end gap-2 justify-start">
-            <img src={contact.avatar} alt="" className="w-7 h-7 rounded-full object-cover flex-shrink-0" />
-            <div className="bubble-them flex items-center gap-1 py-3.5 px-4" style={{ background: "white" }}>
+          <div style={{ display: "flex", alignItems: "flex-end", gap: 6, marginBottom: 6 }}>
+            <img src={contact.avatar} alt="" style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
+            <div style={{
+              background: "#E4E6EB", borderRadius: "4px 18px 18px 18px",
+              padding: "10px 14px", display: "flex", alignItems: "center", gap: 4,
+            }}>
               <span className="typing-dot" /><span className="typing-dot" /><span className="typing-dot" />
             </div>
           </div>
@@ -469,60 +573,85 @@ function ChatView({ contact, onBack, t }) {
 
       {/* ── Reply bar ── */}
       {replyTo && (
-        <div className="flex items-center gap-3 px-4 py-2 bg-blue-50 border-t border-blue-100 flex-shrink-0">
-          <div className="flex-1 border-l-2 border-[#032EA1] pl-2">
-            <p className="text-xs text-[#032EA1] font-semibold">↩ Reply</p>
-            <p className="text-xs text-gray-500 truncate">{replyTo.text || "📷 Photo"}</p>
+        <div style={{
+          display: "flex", alignItems: "center", gap: 10,
+          padding: "8px 14px", background: "#E8EEFF",
+          borderTop: "1px solid #D0D7FF", flexShrink: 0,
+        }}>
+          <div style={{ flex: 1, borderLeft: "3px solid #032EA1", paddingLeft: 8 }}>
+            <p style={{ fontSize: 11, color: "#032EA1", fontWeight: 700 }}>↩ Reply</p>
+            <p style={{ fontSize: 12, color: "#65676B", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {replyTo.text || "📷 Photo"}
+            </p>
           </div>
-          <button onClick={() => setReplyTo(null)} className="text-gray-400 text-xl w-7 h-7 flex items-center justify-center">✕</button>
+          <button onClick={() => setReplyTo(null)} style={{ color: "#65676B", fontSize: 18, WebkitTapHighlightColor: "transparent" }}>✕</button>
         </div>
       )}
 
-      {/* ── Recording indicator (hold mode) ── */}
+      {/* ── Recording indicator ── */}
       {isRecording && (
-        <div className="flex items-center gap-3 px-4 bg-white border-t border-gray-100 flex-shrink-0"
-          style={{ height: 64, paddingBottom: "env(safe-area-inset-bottom,0px)", animation: "slideUp2 .15s ease-out",
-            WebkitUserSelect: "none", userSelect: "none" }}>
-          {/* Pulsing dot + timer */}
-          <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full flex-shrink-0"
-              style={{ background: recCancelled ? "#9ca3af" : "#ef4444", animation: recCancelled ? "none" : "pulse 1s infinite" }} />
-            <span className="font-mono text-sm font-bold" style={{ color: recCancelled ? "#9ca3af" : "#ef4444" }}>
-              {fmtTime(recordMs)}
-            </span>
+        <div style={{
+          display: "flex", alignItems: "center", gap: 10,
+          padding: "0 16px",
+          paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 10px)",
+          height: "calc(env(safe-area-inset-bottom, 0px) + 62px)",
+          background: "white", borderTop: "1px solid #E4E6EB", flexShrink: 0,
+          animation: "slideUp2 .15s ease-out",
+        }}>
+          {/* Dot + timer */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{
+              width: 10, height: 10, borderRadius: "50%", flexShrink: 0,
+              background: recCancelled ? "#BCC0C8" : "#E41E3F",
+              animation: recCancelled ? "none" : "pulse 1s infinite",
+            }} />
+            <span style={{
+              fontFamily: "monospace", fontSize: 15, fontWeight: 700,
+              color: recCancelled ? "#BCC0C8" : "#E41E3F",
+              minWidth: 44,
+            }}>{fmtTime(recordMs)}</span>
           </div>
           {/* Hint */}
-          <div className="flex-1 flex items-center justify-center">
-            <span className="text-xs font-medium transition-colors"
-              style={{ color: recCancelled ? "#ef4444" : "#9ca3af" }}>
+          <div style={{ flex: 1, textAlign: "center" }}>
+            <span style={{ fontSize: 13, color: recCancelled ? "#E41E3F" : "#BCC0C8", fontWeight: 500 }}>
               {recCancelled ? "Release to cancel" : "◀  Slide to cancel"}
             </span>
           </div>
-          {/* Mic pulse */}
-          <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
-            style={{ background: recCancelled ? "#f3f4f6" : "linear-gradient(135deg,#E00025,#8B0020)",
-              animation: recCancelled ? "none" : "pulse 1s infinite",
-              transition: "background 0.2s" }}>
-            <svg className="w-5 h-5" style={{ color: recCancelled ? "#9ca3af" : "white" }}
-              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-            </svg>
+          {/* Pulsing mic */}
+          <div style={{
+            width: 42, height: 42, borderRadius: "50%", flexShrink: 0,
+            background: recCancelled ? "#E4E6EB" : "linear-gradient(135deg,#E41E3F,#8B0020)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            animation: recCancelled ? "none" : "pulse 1.2s infinite",
+            transition: "background .2s",
+          }}>
+            <IcoMic color={recCancelled ? "#BCC0C8" : "white"} />
           </div>
         </div>
       )}
 
-      {/* ── Normal input bar ── */}
+      {/* ── Input bar ── */}
       {!isRecording && (
-        <div className="flex items-end gap-2 px-3 py-2 bg-white border-t border-gray-100 flex-shrink-0"
-          style={{ paddingBottom: "calc(10px + env(safe-area-inset-bottom,0px))" }}
+        <div style={{
+          display: "flex", alignItems: "flex-end", gap: 6,
+          padding: "8px 8px",
+          paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 8px)",
+          background: "white", borderTop: "1px solid #E4E6EB", flexShrink: 0,
+        }}
           onClick={e => e.stopPropagation()}>
 
-          {/* + Attachment */}
-          <div className="relative flex-shrink-0">
-            <button onClick={() => { setShowAttach(v => !v); }}
-              className={`w-11 h-11 rounded-full flex items-center justify-center transition-all ${showAttach ? "rotate-45" : ""}`}
-              style={{ background: showAttach ? "linear-gradient(135deg,#032EA1,#8B0020)" : "#f3f4f6" }}>
-              <svg className={`w-5 h-5 ${showAttach ? "text-white" : "text-gray-500"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+          {/* Attachment */}
+          <div style={{ position: "relative", flexShrink: 0 }}>
+            <button onClick={() => setShowAttach(v => !v)} style={{
+              width: 38, height: 38, borderRadius: "50%",
+              background: showAttach ? "linear-gradient(135deg,#032EA1,#8B0020)" : "#E4E6EB",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              color: showAttach ? "white" : "#65676B", flexShrink: 0,
+              transition: "background .2s, transform .2s",
+              transform: showAttach ? "rotate(45deg)" : "none",
+              WebkitTapHighlightColor: "transparent",
+            }}>
+              <svg width={18} height={18} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
               </svg>
             </button>
@@ -531,64 +660,68 @@ function ChatView({ contact, onBack, t }) {
                 onImage={() => imgInputRef.current?.click()}
                 onCamera={() => camInputRef.current?.click()}
                 onFile={() => fileInputRef.current?.click()}
-                onLocation={() => setMsgs(p => [...p, mkMsg("me", { text: "📍 ភ្នំពេញ, Cambodia (12.3657° N, 104.9910° E)" })])}
+                onLocation={() => { setMsgs(p => [...p, mkMsg("me", { text: "📍 ភ្នំពេញ, Cambodia (12.3657° N, 104.9910° E)" })]); }}
                 onClose={() => setShowAttach(false)}
               />
             )}
           </div>
 
-          {/* Camera shortcut */}
-          <button onClick={() => camInputRef.current?.click()}
-            className="w-11 h-11 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
-            <svg className="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-          </button>
-
-          {/* Text input */}
-          <div className="flex-1 flex items-center bg-gray-100 rounded-2xl px-3 py-2 gap-2 relative min-w-0">
-            <input ref={inputRef} type="text" value={input} onChange={e => setInput(e.target.value)}
+          {/* Text input pill */}
+          <div style={{
+            flex: 1, display: "flex", alignItems: "center",
+            background: "#F0F2F5", borderRadius: 22,
+            padding: "0 14px", minHeight: 38, gap: 8,
+          }}>
+            <input
+              ref={inputRef} type="text" value={input}
+              onChange={e => setInput(e.target.value)}
               onKeyDown={e => e.key === "Enter" && !e.shiftKey && send()}
-              placeholder={t("typeMessage")}
-              className="flex-1 bg-transparent outline-none min-w-0"
-              style={{ WebkitUserSelect: "text", userSelect: "text" }} />
+              placeholder="Aa"
+              style={{
+                flex: 1, background: "transparent", outline: "none", border: "none",
+                fontSize: 15, color: "#050505", minWidth: 0,
+                WebkitUserSelect: "text", userSelect: "text",
+              }}
+            />
+            {/* Emoji button */}
+            <button style={{ fontSize: 18, flexShrink: 0, WebkitTapHighlightColor: "transparent", lineHeight: 1 }}>🙂</button>
           </div>
 
           {/* Send or Mic */}
           {input.trim() ? (
-            <button onClick={send}
-              className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 shadow active:scale-90 transition-transform"
-              style={{ background: "linear-gradient(135deg,#032EA1,#8B0020)" }}>
-              <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
-              </svg>
+            <button onClick={send} style={{
+              width: 38, height: 38, borderRadius: "50%", flexShrink: 0,
+              background: "linear-gradient(135deg,#032EA1,#8B0020)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              color: "white", boxShadow: "0 2px 8px rgba(3,46,161,0.35)",
+              WebkitTapHighlightColor: "transparent",
+            }}>
+              <IcoSend />
             </button>
           ) : (
             <button
               onMouseDown={micPointerDown}
               onTouchStart={micPointerDown}
-              className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 shadow"
               style={{
+                width: 38, height: 38, borderRadius: "50%", flexShrink: 0,
                 background: "linear-gradient(135deg,#032EA1,#8B0020)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                color: "white", boxShadow: "0 2px 8px rgba(3,46,161,0.35)",
                 touchAction: "none",
                 WebkitTapHighlightColor: "rgba(0,0,0,0)",
                 outline: "none",
               }}>
-              <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-              </svg>
+              <IcoMic color="white" />
             </button>
           )}
         </div>
       )}
 
       {/* Hidden file inputs */}
-      <input ref={imgInputRef}  type="file" accept="image/*"            className="hidden" onChange={handleImageFile} />
-      <input ref={camInputRef}  type="file" accept="image/*" capture="environment" className="hidden" onChange={handleImageFile} />
-      <input ref={fileInputRef} type="file"                              className="hidden" onChange={handleFileAttach} />
+      <input ref={imgInputRef}  type="file" accept="image/*"                       style={{ display:"none" }} onChange={handleImageFile} />
+      <input ref={camInputRef}  type="file" accept="image/*" capture="environment" style={{ display:"none" }} onChange={handleImageFile} />
+      <input ref={fileInputRef} type="file"                                         style={{ display:"none" }} onChange={handleFileAttach} />
 
-      {/* Full-screen image */}
       {viewImg && <ImageViewer src={viewImg} onClose={() => setViewImg(null)} />}
     </div>
   );
@@ -608,55 +741,117 @@ export default function Messages() {
   );
 
   return (
-    <div className="flex flex-col min-h-dvh pb-24" style={{ background: "var(--kh-cream)" }}>
-      <div className="px-5 pt-12 pb-4 bg-white shadow-sm">
-        <h1 className="text-2xl font-bold text-[#032EA1] mb-1">{t("chats")}</h1>
-        <p className="text-gray-400 text-xs mb-3">{t("chatWith")}</p>
-        <div className="flex items-center gap-2 bg-gray-100 rounded-2xl px-4 py-2.5">
-          <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <div style={{
+      display: "flex", flexDirection: "column",
+      minHeight: "100dvh",
+      paddingBottom: 96,
+      background: "#F0F2F5",
+      maxWidth: 680, margin: "0 auto", width: "100%",
+    }}>
+      {/* Header */}
+      <div style={{
+        background: "white",
+        paddingTop: "calc(env(safe-area-inset-top, 0px) + 14px)",
+        padding: "calc(env(safe-area-inset-top, 0px) + 14px) 16px 12px",
+        boxShadow: "0 1px 0 rgba(0,0,0,0.08)",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+          <h1 style={{ fontSize: 24, fontWeight: 800, color: "#032EA1" }}>{t("chats")}</h1>
+          <button style={{
+            width: 36, height: 36, borderRadius: "50%", background: "#E4E6EB",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            WebkitTapHighlightColor: "transparent",
+          }}>
+            <svg width={18} height={18} fill="none" viewBox="0 0 24 24" stroke="#032EA1" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+          </button>
+        </div>
+        {/* Search */}
+        <div style={{
+          display: "flex", alignItems: "center", gap: 8,
+          background: "#F0F2F5", borderRadius: 22, padding: "8px 14px",
+        }}>
+          <svg width={16} height={16} fill="none" viewBox="0 0 24 24" stroke="#65676B" strokeWidth={2} style={{ flexShrink: 0 }}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
           </svg>
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search..."
-            className="flex-1 bg-transparent outline-none" />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search Messenger"
+            style={{ flex: 1, background: "transparent", outline: "none", border: "none", fontSize: 15, color: "#050505" }} />
         </div>
       </div>
 
-      <div className="px-5 pt-4 pb-2">
-        <p className="text-xs text-gray-400 font-semibold uppercase mb-2">Online</p>
-        <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1">
+      {/* Active now strip */}
+      <div style={{ padding: "12px 16px 4px" }}>
+        <p style={{ fontSize: 12, color: "#65676B", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>
+          Active Now
+        </p>
+        <div style={{ display: "flex", gap: 14, overflowX: "auto", paddingBottom: 4 }}
+          className="no-scrollbar">
           {convos.filter(c => c.online).map(c => (
-            <button key={c.id} onClick={() => setActive(c)} className="flex flex-col items-center gap-1 flex-shrink-0">
-              <div className="relative">
-                <img src={c.avatar} alt={c.nameEn} className="rounded-full object-cover border-2 border-[#032EA1]" style={{ width: 52, height: 52 }} />
-                <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-400 rounded-full border-2 border-white" />
+            <button key={c.id} onClick={() => setActive(c)}
+              style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, flexShrink: 0, WebkitTapHighlightColor: "transparent" }}>
+              <div style={{ position: "relative" }}>
+                <img src={c.avatar} alt="" style={{ width: 54, height: 54, borderRadius: "50%", objectFit: "cover", border: "2px solid #032EA1" }} />
+                <span style={{
+                  position: "absolute", bottom: 1, right: 1,
+                  width: 13, height: 13, borderRadius: "50%",
+                  background: "#31A24C", border: "2.5px solid white",
+                }} />
               </div>
-              <span className="text-xs text-gray-600 max-w-[52px] truncate">{c.name}</span>
+              <span style={{ fontSize: 11, color: "#050505", maxWidth: 54, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {c.name}
+              </span>
             </button>
           ))}
         </div>
       </div>
 
-      <div className="angkor-divider mx-5 my-2 text-xs">🏛️</div>
+      <div style={{ height: 1, background: "#E4E6EB", margin: "8px 16px" }} />
 
-      <div className="px-4 space-y-1.5">
+      {/* Conversation list */}
+      <div style={{ padding: "0 8px", display: "flex", flexDirection: "column", gap: 2 }}>
         {filtered.map(c => (
           <button key={c.id} onClick={() => setActive(c)}
-            className="w-full flex items-center gap-3 bg-white rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow active:scale-[0.99]">
-            <div className="relative flex-shrink-0">
-              <img src={c.avatar} alt={c.nameEn} className="w-14 h-14 rounded-full object-cover" />
-              {c.online && <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-400 rounded-full border-2 border-white" />}
+            style={{
+              display: "flex", alignItems: "center", gap: 12,
+              padding: "10px 10px", borderRadius: 12,
+              background: "transparent", width: "100%",
+              WebkitTapHighlightColor: "rgba(0,0,0,0.04)",
+              transition: "background .15s",
+            }}
+            className="hover:bg-white active:bg-gray-100">
+            <div style={{ position: "relative", flexShrink: 0 }}>
+              <img src={c.avatar} alt="" style={{ width: 56, height: 56, borderRadius: "50%", objectFit: "cover" }} />
+              {c.online && (
+                <span style={{
+                  position: "absolute", bottom: 2, right: 2,
+                  width: 13, height: 13, borderRadius: "50%",
+                  background: "#31A24C", border: "2.5px solid white",
+                }} />
+              )}
             </div>
-            <div className="flex-1 text-left min-w-0">
-              <div className="flex justify-between items-center">
-                <span className={`font-semibold text-[#1A1A2E] ${c.unread ? "font-bold" : ""}`}>{c.name}</span>
-                <span className="text-xs text-gray-400">{c.time}</span>
+            <div style={{ flex: 1, textAlign: "left", minWidth: 0 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 2 }}>
+                <span style={{ fontSize: 15, fontWeight: c.unread ? 700 : 500, color: "#050505" }}>{c.name}</span>
+                <span style={{ fontSize: 12, color: c.unread ? "#032EA1" : "#65676B", flexShrink: 0, marginLeft: 8 }}>{c.time}</span>
               </div>
-              <p className={`text-sm truncate mt-0.5 ${c.unread ? "text-[#032EA1] font-medium" : "text-gray-400"}`}>{c.lastMsg}</p>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <p style={{
+                  fontSize: 13, color: c.unread ? "#050505" : "#65676B",
+                  fontWeight: c.unread ? 600 : 400,
+                  overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1,
+                }}>{c.lastMsg}</p>
+                {c.unread > 0 && (
+                  <span style={{
+                    minWidth: 20, height: 20, borderRadius: 10, padding: "0 5px",
+                    background: "#032EA1", color: "white",
+                    fontSize: 11, fontWeight: 700,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    flexShrink: 0,
+                  }}>{c.unread}</span>
+                )}
+              </div>
             </div>
-            {c.unread > 0 && (
-              <span className="w-5 h-5 rounded-full text-white text-xs flex items-center justify-center font-bold flex-shrink-0"
-                style={{ background: "var(--kh-red)" }}>{c.unread}</span>
-            )}
           </button>
         ))}
       </div>
