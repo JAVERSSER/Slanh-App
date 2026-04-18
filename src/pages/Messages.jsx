@@ -158,17 +158,16 @@ function ChatView({ contact, onBack, t }) {
   const inputRef = useRef(null);
   const [viewImg, setViewImg]           = useState(null);
   // Voice recording
-  const [isRecording, setIsRecording]   = useState(false);
-  const [recordMs, setRecordMs]         = useState(0);
-  const [voiceLocked, setVoiceLocked]   = useState(false);
-  const [voiceDrag, setVoiceDrag]       = useState({ dx: 0, dy: 0 });
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordMs, setRecordMs]       = useState(0);
+  const [recCancelled, setRecCancelled] = useState(false); // visual feedback on cancel
   const mediaRef       = useRef(null);
   const chunksRef      = useRef([]);
   const timerRef       = useRef(null);
-  const micAnchor      = useRef({ x: 0, y: 0 });
   const recordStartRef = useRef(0);
   const cancelRef      = useRef(false);
-  const shouldSendRef  = useRef(false);  // true = release happened before MediaRecorder was ready
+  const shouldSendRef  = useRef(false);
+  const micAnchorX     = useRef(0);
   const typingTimer    = useRef(null);
   const bottomRef      = useRef(null);
   const lpTimer        = useRef(null);   // long-press timer for reactions
@@ -236,151 +235,95 @@ function ChatView({ contact, onBack, t }) {
   };
 
   /* ── voice recording ── */
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      if (cancelRef.current) { stream.getTracks().forEach(t => t.stop()); return; }
-      const mr = new MediaRecorder(stream);
-      chunksRef.current = [];
-      mr.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
-      mr.onstop = () => {
-        stream.getTracks().forEach(t => t.stop());
-        if (cancelRef.current) { chunksRef.current = []; return; }
-        const durationSecs = Math.round((Date.now() - recordStartRef.current) / 1000);
-        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
-        const url  = URL.createObjectURL(blob);
-        setMsgs(p => [...p, mkMsg("me", { type: "voice", src: url, duration: durationSecs })]);
-        setRecordMs(0);
-        fakeReply();
-      };
-      mr.start();
-      mediaRef.current = mr;
-      // User released before we were ready — stop immediately so onstop sends
-      if (shouldSendRef.current) {
-        shouldSendRef.current = false;
-        mr.stop();
-      }
-    } catch {
-      clearInterval(timerRef.current);
-      setIsRecording(false);
-      setRecordMs(0);
-      alert("Microphone permission denied");
-    }
-  };
-
-  const stopRecording = () => {
-    clearInterval(timerRef.current);
-    if (mediaRef.current && mediaRef.current.state !== "inactive") {
-      mediaRef.current.stop();
-    }
-    setIsRecording(false);
-    setVoiceLocked(false);
-    setVoiceDrag({ dx: 0, dy: 0 });
-  };
-
-  const cancelRecording = () => {
-    cancelRef.current = true;
-    clearInterval(timerRef.current);
-    if (mediaRef.current && mediaRef.current.state !== "inactive") {
-      try { mediaRef.current.stop(); } catch {}
-    }
-    mediaRef.current = null;
-    chunksRef.current = [];
-    setIsRecording(false);
-    setVoiceLocked(false);
-    setVoiceDrag({ dx: 0, dy: 0 });
-    setRecordMs(0);
-  };
-
-  const micDown = (e) => {
+  const micPointerDown = (e) => {
     e.preventDefault();
-    const pt = e.touches ? e.touches[0] : e;
-    micAnchor.current = { x: pt.clientX, y: pt.clientY };
-    cancelRef.current = false;
-
-    // Show recording UI immediately — don't wait for getUserMedia
+    if (isRecording) return;
+    cancelRef.current   = false;
+    shouldSendRef.current = false;
+    micAnchorX.current  = e.touches ? e.touches[0].clientX : e.clientX;
     recordStartRef.current = Date.now();
     setIsRecording(true);
-    setVoiceLocked(false);
-    setVoiceDrag({ dx: 0, dy: 0 });
+    setRecCancelled(false);
     setRecordMs(0);
 
-    // 100ms interval for smooth timer display
     timerRef.current = setInterval(() => {
       setRecordMs(Date.now() - recordStartRef.current);
     }, 100);
 
-    let done = false;
-
-    const cleanup = () => {
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("touchmove", onMove);
-      window.removeEventListener("mouseup",   onUp);
-      window.removeEventListener("touchend",  onUp);
-    };
-
-    const doCancel = () => {
-      cancelRef.current = true;
-      shouldSendRef.current = false;
-      clearInterval(timerRef.current);
-      if (mediaRef.current && mediaRef.current.state !== "inactive") {
-        try { mediaRef.current.stop(); } catch {}
-      }
-      mediaRef.current = null;
-      chunksRef.current = [];
-      setIsRecording(false);
-      setVoiceLocked(false);
-      setVoiceDrag({ dx: 0, dy: 0 });
-      setRecordMs(0);
-    };
-
+    // Move: slide left > 80px to cancel
     const onMove = (ev) => {
-      if (done) return;
-      const p = ev.touches ? ev.touches[0] : ev;
-      const dx = p.clientX - micAnchor.current.x;
-      const dy = p.clientY - micAnchor.current.y;
-      setVoiceDrag({ dx, dy });
-      if (dx < -80) {
-        done = true; cleanup(); doCancel();
-      } else if (dy < -80) {
-        done = true; cleanup(); clearInterval(timerRef.current); setVoiceLocked(true);
+      const x = ev.touches ? ev.touches[0].clientX : ev.clientX;
+      if (x - micAnchorX.current < -80) {
+        setRecCancelled(true);
+      } else {
+        setRecCancelled(false);
       }
     };
 
     const onUp = () => {
-      if (done) return;
-      done = true;
-      cleanup();
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("touchmove",   onMove);
+      window.removeEventListener("pointerup",   onUp);
+      window.removeEventListener("pointercancel", onUp);
+      window.removeEventListener("touchend",    onUp);
       clearInterval(timerRef.current);
-      const elapsed = Date.now() - recordStartRef.current;
-      if (elapsed < 200) {
-        // Quick tap → enter free-recording mode (shows Send + Delete buttons)
-        setVoiceLocked(true);
-        timerRef.current = setInterval(() => {
-          setRecordMs(Date.now() - recordStartRef.current);
-        }, 100);
-      } else {
-        // Hold release → auto-send
+
+      const elapsed  = Date.now() - recordStartRef.current;
+      const doCancel = cancelRef.current || elapsed < 300;
+
+      if (doCancel) {
+        cancelRef.current = true;
         if (mediaRef.current && mediaRef.current.state !== "inactive") {
-          mediaRef.current.stop(); // onstop sends the message
+          try { mediaRef.current.stop(); } catch {}
+        }
+        mediaRef.current = null;
+        chunksRef.current = [];
+      } else {
+        if (mediaRef.current && mediaRef.current.state !== "inactive") {
+          mediaRef.current.stop(); // onstop sends
         } else {
           shouldSendRef.current = true;
         }
-        setIsRecording(false);
-        setVoiceLocked(false);
-        setVoiceDrag({ dx: 0, dy: 0 });
       }
+      setIsRecording(false);
+      setRecCancelled(false);
+      setRecordMs(0);
     };
 
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("touchmove", onMove, { passive: false });
-    window.addEventListener("mouseup",   onUp);
-    window.addEventListener("touchend",  onUp);
+    window.addEventListener("pointermove",   onMove);
+    window.addEventListener("touchmove",     onMove, { passive: true });
+    window.addEventListener("pointerup",     onUp);
+    window.addEventListener("pointercancel", onUp);
+    window.addEventListener("touchend",      onUp);
 
-    startRecording();
+    // Start mic async
+    (async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        if (cancelRef.current) { stream.getTracks().forEach(t => t.stop()); return; }
+        const mr = new MediaRecorder(stream);
+        chunksRef.current = [];
+        mr.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+        mr.onstop = () => {
+          stream.getTracks().forEach(t => t.stop());
+          if (cancelRef.current) { chunksRef.current = []; return; }
+          const dur = Math.max(1, Math.round((Date.now() - recordStartRef.current) / 1000));
+          const url = URL.createObjectURL(new Blob(chunksRef.current, { type: "audio/webm" }));
+          setMsgs(p => [...p, mkMsg("me", { type: "voice", src: url, duration: dur })]);
+          fakeReply();
+        };
+        mr.start();
+        mediaRef.current = mr;
+        if (shouldSendRef.current) { shouldSendRef.current = false; mr.stop(); }
+      } catch {
+        clearInterval(timerRef.current);
+        setIsRecording(false);
+        setRecordMs(0);
+        alert("Microphone permission denied");
+      }
+    })();
   };
 
-  // Takes milliseconds, displays as M:SS
   const fmtTime = (ms) => {
     const s = Math.floor(ms / 1000);
     return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
@@ -535,107 +478,37 @@ function ChatView({ contact, onBack, t }) {
         </div>
       )}
 
-      {/* ── Recording bar ── */}
+      {/* ── Recording indicator (hold mode) ── */}
       {isRecording && (
-        voiceLocked ? (
-          /* LOCKED mode — slides in with delete + send buttons */
-          <div className="flex items-center gap-3 px-4 py-3 bg-white border-t border-gray-100 flex-shrink-0"
-            style={{ paddingBottom: "calc(8px + env(safe-area-inset-bottom,0px))", animation: "slideUp2 .18s cubic-bezier(.22,1,.36,1)" }}>
-            {/* Delete button */}
-            <button onClick={cancelRecording}
-              className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 active:scale-90 transition-transform"
-              style={{ background: "#fee2e2" }}>
-              <svg className="w-5 h-5" style={{ color: "#ef4444" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
-            </button>
-            {/* Timer + waveform */}
-            <div className="flex-1 flex items-center gap-2 bg-red-50 rounded-2xl px-3 h-11">
-              <span className="w-2.5 h-2.5 rounded-full bg-red-500 flex-shrink-0" style={{ animation: "pulse 1s infinite" }} />
-              <span className="text-red-600 font-mono text-sm font-bold flex-shrink-0">{fmtTime(recordMs)}</span>
-              <div className="flex-1 h-1.5 bg-red-200 rounded-full overflow-hidden">
-                <div className="h-full bg-red-400 rounded-full" style={{ width: `${Math.min(Math.floor(recordMs / 1000) * 2, 100)}%`, transition: "width 0.5s linear" }} />
-              </div>
-            </div>
-            {/* Send button */}
-            <button onClick={stopRecording}
-              className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 shadow active:scale-90 transition-transform"
-              style={{ background: "linear-gradient(135deg,#032EA1,#8B0020)" }}>
-              <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
-            </button>
+        <div className="flex items-center gap-3 px-4 bg-white border-t border-gray-100 flex-shrink-0"
+          style={{ height: 64, paddingBottom: "env(safe-area-inset-bottom,0px)", animation: "slideUp2 .15s ease-out",
+            WebkitUserSelect: "none", userSelect: "none" }}>
+          {/* Pulsing dot + timer */}
+          <div className="flex items-center gap-2">
+            <span className="w-3 h-3 rounded-full flex-shrink-0"
+              style={{ background: recCancelled ? "#9ca3af" : "#ef4444", animation: recCancelled ? "none" : "pulse 1s infinite" }} />
+            <span className="font-mono text-sm font-bold" style={{ color: recCancelled ? "#9ca3af" : "#ef4444" }}>
+              {fmtTime(recordMs)}
+            </span>
           </div>
-        ) : (
-          /* HOLD mode — mic follows finger, lock icon fades in above */
-          <div className="flex items-center gap-2 px-3 bg-white border-t border-gray-100 flex-shrink-0"
-            style={{
-              paddingTop: 8,
-              paddingBottom: "calc(10px + env(safe-area-inset-bottom,0px))",
-              WebkitUserSelect: "none", userSelect: "none", WebkitTouchCallout: "none",
-              overflow: "visible",
-            }}>
-            {/* Timer */}
-            <div className="flex items-center gap-2 flex-shrink-0 pl-1">
-              <span className="w-2.5 h-2.5 rounded-full bg-red-500 flex-shrink-0" style={{ animation: "pulse 1s infinite" }} />
-              <span className="text-red-600 font-mono text-sm font-bold">{fmtTime(recordMs)}</span>
-            </div>
-            {/* Slide to cancel — drifts left and fades as user drags */}
-            <div className="flex-1 flex items-center justify-center overflow-hidden">
-              <span className="text-gray-400 text-xs whitespace-nowrap" style={{
-                opacity: Math.max(0, 1 + voiceDrag.dx / 70),
-                transform: `translateX(${Math.min(0, voiceDrag.dx * 0.25)}px)`,
-              }}>← Slide to cancel</span>
-            </div>
-            {/* Lock + mic container — overflows upward */}
-            <div className="flex-shrink-0 relative" style={{ width: 52, height: 52, overflow: "visible" }}>
-              {/* Lock target — fades in and turns blue as mic approaches */}
-              {(() => {
-                const progress = Math.min(1, Math.max(0, -voiceDrag.dy / 50));
-                const near     = voiceDrag.dy < -55;
-                return (
-                  <div style={{
-                    position: "absolute",
-                    bottom: 60,
-                    left: "50%",
-                    transform: "translateX(-50%)",
-                    opacity: progress,
-                    pointerEvents: "none",
-                    transition: "opacity 0.05s",
-                  }}>
-                    <div style={{
-                      width: 38, height: 38, borderRadius: "50%",
-                      background: near ? "linear-gradient(135deg,#032EA1,#1a4fcc)" : "#f3f4f6",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      boxShadow: near ? "0 4px 16px rgba(3,46,161,0.35)" : "0 2px 8px rgba(0,0,0,0.1)",
-                      transition: "background 0.15s, box-shadow 0.15s",
-                    }}>
-                      <svg style={{ width: 18, height: 18, color: near ? "white" : "#9ca3af", transition: "color 0.15s" }}
-                        fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                      </svg>
-                    </div>
-                  </div>
-                );
-              })()}
-              {/* Mic button — smoothly follows finger upward */}
-              <button
-                onMouseDown={micDown} onTouchStart={micDown}
-                onContextMenu={e => e.preventDefault()}
-                style={{
-                  position: "absolute", bottom: 0, left: 0,
-                  width: 52, height: 52, borderRadius: "50%",
-                  background: "linear-gradient(135deg,#E00025,#8B0020)",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  boxShadow: "0 4px 16px rgba(224,0,37,0.4)",
-                  transform: `translateY(${Math.max(-72, Math.min(0, voiceDrag.dy))}px)`,
-                  touchAction: "none", WebkitUserSelect: "none", userSelect: "none",
-                }}>
-                <svg style={{ width: 22, height: 22, color: "white" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                </svg>
-              </button>
-            </div>
+          {/* Hint */}
+          <div className="flex-1 flex items-center justify-center">
+            <span className="text-xs font-medium transition-colors"
+              style={{ color: recCancelled ? "#ef4444" : "#9ca3af" }}>
+              {recCancelled ? "Release to cancel" : "◀  Slide to cancel"}
+            </span>
           </div>
-        )
+          {/* Mic pulse */}
+          <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
+            style={{ background: recCancelled ? "#f3f4f6" : "linear-gradient(135deg,#E00025,#8B0020)",
+              animation: recCancelled ? "none" : "pulse 1s infinite",
+              transition: "background 0.2s" }}>
+            <svg className="w-5 h-5" style={{ color: recCancelled ? "#9ca3af" : "white" }}
+              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+            </svg>
+          </div>
+        </div>
       )}
 
       {/* ── Normal input bar ── */}
@@ -692,10 +565,11 @@ function ChatView({ contact, onBack, t }) {
             </button>
           ) : (
             <button
-              onMouseDown={micDown} onTouchStart={micDown}
+              onMouseDown={micPointerDown}
+              onTouchStart={micPointerDown}
               onContextMenu={e => e.preventDefault()}
-              className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 shadow active:scale-90 transition-all"
-              style={{ background: "linear-gradient(135deg,#032EA1,#8B0020)", touchAction: "none", WebkitUserSelect: "none", userSelect: "none" }}>
+              className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 shadow transition-transform"
+              style={{ background: "linear-gradient(135deg,#032EA1,#8B0020)", touchAction: "none", userSelect: "none", WebkitUserSelect: "none" }}>
               <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
               </svg>
