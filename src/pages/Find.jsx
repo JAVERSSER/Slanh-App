@@ -74,7 +74,7 @@ function StoriesStrip({ profiles, theme, onView }) {
           <div className="w-14 h-14 rounded-full flex items-center justify-center"
             style={{ background: theme.gradient, padding: 2 }}>
             <div className="w-full h-full rounded-full bg-white flex items-center justify-center text-xl overflow-hidden">
-              <img src="https://i.pravatar.cc/300?img=47" alt="me"
+              <img src="https://i.pravatar.cc/600?img=47" alt="me"
                 className="w-full h-full object-cover rounded-full" />
             </div>
           </div>
@@ -640,7 +640,7 @@ function MatchModal({ profile, onClose, onChat, t, theme }) {
         </div>
         <div className="flex justify-center items-center gap-4 mb-8">
           <div className="relative">
-            <img src="https://i.pravatar.cc/300?img=47" alt="me"
+            <img src="https://i.pravatar.cc/600?img=47" alt="me"
               className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-xl"/>
             <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full flex items-center justify-center text-sm border-2 border-white"
               style={{background:theme.gradient}}>✓</div>

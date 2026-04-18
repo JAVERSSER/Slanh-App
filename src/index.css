@@ -19,6 +19,12 @@
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
+img {
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  image-rendering: -webkit-optimize-contrast;
+}
+
 /* ── Touch / Tap improvements ────────────── */
 button, a, [role="button"] {
   touch-action: manipulation;

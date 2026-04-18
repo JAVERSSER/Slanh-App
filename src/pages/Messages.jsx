@@ -4,6 +4,18 @@ import { useLang } from "../context/LangContext";
 
 const REACTIONS = ["❤️","😂","😮","😢","😡","👍"];
 
+const isKhmer = text => /[\u1780-\u17FF]/.test(text);
+
+async function fetchTranslation(text) {
+  const from = isKhmer(text) ? "km" : "en";
+  const to   = from === "km" ? "en" : "km";
+  const res  = await fetch(
+    `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${from}|${to}`
+  );
+  const data = await res.json();
+  return data.responseData?.translatedText || null;
+}
+
 const INIT_CONVOS = profiles.slice(0, 4).map((p, i) => ({
   ...p,
   lastMsg: ["ជំរាបសួរ! 😊","ចង់ទៅហូបអាហារជាមួយគ្នាទេ?","ស្រុកខ្មែរស្អាតណាស់ 🇰🇭","Online ទេ?"][i],
@@ -97,21 +109,17 @@ function ImageViewer({ src, onClose }) {
 }
 
 /* ── Attachment Tray ─────────────────────── */
-function AttachTray({ onImage, onCamera, onFile, onLocation, onClose }) {
+function AttachTray({ onFile, onLocation, onClose }) {
   const items = [
-    { icon:"🖼️", label:"រូបភាព", action:onImage    },
-    { icon:"📷", label:"ថតរូប",  action:onCamera   },
     { icon:"📄", label:"ឯកសារ",  action:onFile     },
     { icon:"📍", label:"ទីតាំង", action:onLocation },
-    { icon:"🎞️", label:"GIF",    action:onClose    },
-    { icon:"🎵", label:"តន្ត្រី", action:onClose    },
   ];
   return (
     <>
       <div className="fixed inset-0 z-30" onClick={onClose} />
-      <div className="absolute bottom-full mb-2 left-0 z-40 bg-white rounded-2xl shadow-xl border border-gray-100 p-4 w-64"
+      <div className="absolute bottom-full mb-2 left-0 z-40 bg-white rounded-2xl shadow-xl border border-gray-100 p-4 w-44"
         style={{ animation:"slideUp2 .2s ease-out" }}>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           {items.map(item => (
             <button key={item.label} onClick={() => { item.action?.(); onClose(); }}
               className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-gray-50 hover:bg-blue-50 active:scale-95 transition-all"
@@ -165,6 +173,8 @@ function ChatView({ contact, onBack, t }) {
   const cancelRef      = useRef(false);
   const shouldSendRef  = useRef(false);
   const micAnchorX     = useRef(0);
+  const micBtnRef      = useRef(null);
+  const startRecordingRef = useRef(null);
 
   // Collapse attach+camera when input focused or has text
   const showExtras = !inputFocused && !input.trim();
@@ -208,6 +218,23 @@ function ChatView({ contact, onBack, t }) {
   const cancelLongPress = () => clearTimeout(lpTimer.current);
   const setReaction = (id, emoji) => { setMsgs(p => p.map(m => m.id===id?{...m,reaction:emoji}:m)); setReactionTarget(null); };
 
+  const translateMsg = async (id, text) => {
+    setReactionTarget(null);
+    // If already translated, toggle visibility
+    const msg = msgs.find(m => m.id === id);
+    if (msg?.translatedText) {
+      setMsgs(p => p.map(m => m.id===id ? {...m, showTranslated:!m.showTranslated} : m));
+      return;
+    }
+    setMsgs(p => p.map(m => m.id===id ? {...m, translating:true} : m));
+    try {
+      const result = await fetchTranslation(text);
+      setMsgs(p => p.map(m => m.id===id ? {...m, translating:false, translatedText:result, showTranslated:true} : m));
+    } catch {
+      setMsgs(p => p.map(m => m.id===id ? {...m, translating:false} : m));
+    }
+  };
+
   const handleImageFile = e => {
     const f = e.target.files?.[0]; if (!f) return;
     setMsgs(p => [...p, mkMsg("me", { type:"image", src:URL.createObjectURL(f) })]);
@@ -220,16 +247,63 @@ function ChatView({ contact, onBack, t }) {
   };
 
   /* ── Recording ── */
-  const startRecording = e => {
-    e.preventDefault();
+  // Keep a stable ref so the direct DOM listener always calls the latest version
+  const startRecording = useCallback(e => {
+    e.preventDefault(); // works because listener is attached with { passive: false }
     if (isRecording) return;
     setMicDenied(false);
+    const touchId = e.touches?.[0]?.identifier;
     micAnchorX.current     = e.touches ? e.touches[0].clientX : e.clientX;
     cancelRef.current      = false;
     shouldSendRef.current  = false;
     recordStartRef.current = Date.now();
     setIsRecording(true); setRecCancelled(false); setRecordMs(0);
     timerRef.current = setInterval(() => setRecordMs(Date.now() - recordStartRef.current), 100);
+
+    const onMove = ev => {
+      ev.preventDefault(); // prevents iOS from treating this as a scroll gesture
+      const t = touchId !== undefined
+        ? Array.from(ev.changedTouches ?? []).find(t => t.identifier === touchId)
+        : (ev.changedTouches?.[0] ?? ev.touches?.[0]);
+      const x = t ? t.clientX : ev.clientX;
+      const slid = x - micAnchorX.current < -60;
+      cancelRef.current = slid;
+      setRecCancelled(slid);
+    };
+
+    let ended = false;
+    const onEnd = ev => {
+      if (ended) return;
+      // For touchend, confirm it's the same finger
+      if (ev.changedTouches && touchId !== undefined) {
+        const t = Array.from(ev.changedTouches).find(t => t.identifier === touchId);
+        if (!t) return;
+      }
+      ended = true;
+      document.removeEventListener("touchmove",   onMove);
+      document.removeEventListener("touchend",    onEnd);
+      document.removeEventListener("touchcancel", onEnd);
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup",   onEnd);
+      clearInterval(timerRef.current);
+      if (cancelRef.current || Date.now() - recordStartRef.current < 300) {
+        cancelRef.current = true;
+        if (mediaRef.current?.state !== "inactive") { try { mediaRef.current.stop(); } catch {} }
+        mediaRef.current = null; chunksRef.current = [];
+      } else {
+        if (mediaRef.current?.state !== "inactive") mediaRef.current.stop();
+        else shouldSendRef.current = true;
+      }
+      setIsRecording(false); setRecCancelled(false); setRecordMs(0);
+    };
+
+    // passive: false on touchmove is critical — lets us call preventDefault()
+    // which stops iOS treating the drag as a page scroll
+    document.addEventListener("touchmove",   onMove, { passive: false });
+    document.addEventListener("touchend",    onEnd,  { passive: true  });
+    document.addEventListener("touchcancel", onEnd,  { passive: true  });
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup",   onEnd);
 
     (async () => {
       try {
@@ -254,30 +328,20 @@ function ChatView({ contact, onBack, t }) {
         setMicDenied(true);
       }
     })();
-  };
+  }, [isRecording]);
 
-  // Overlay handlers — React synthetic events on a fixed full-screen div
-  // are the only reliable way to track touch on iOS PWA
-  const onRecordMove = e => {
-    const t = e.changedTouches?.[0] ?? e.touches?.[0];
-    const x = t ? t.clientX : e.clientX;
-    const slid = x - micAnchorX.current < -60;
-    cancelRef.current = slid;
-    setRecCancelled(slid);
-  };
+  // Keep ref current so the direct DOM listener always has the latest closure
+  useEffect(() => { startRecordingRef.current = startRecording; }, [startRecording]);
 
-  const stopRecording = useCallback(() => {
-    clearInterval(timerRef.current);
-    if (cancelRef.current || Date.now() - recordStartRef.current < 300) {
-      cancelRef.current = true;
-      if (mediaRef.current?.state !== "inactive") { try { mediaRef.current.stop(); } catch {} }
-      mediaRef.current = null; chunksRef.current = [];
-    } else {
-      if (mediaRef.current?.state !== "inactive") mediaRef.current.stop();
-      else shouldSendRef.current = true;
-    }
-    setIsRecording(false); setRecCancelled(false); setRecordMs(0);
-  }, []);
+  // Attach touchstart with { passive: false } directly — bypasses React's passive default
+  // This makes e.preventDefault() actually work on iOS, stopping scroll intent
+  useEffect(() => {
+    const btn = micBtnRef.current;
+    if (!btn) return;
+    const handler = e => startRecordingRef.current(e);
+    btn.addEventListener("touchstart", handler, { passive: false });
+    return () => btn.removeEventListener("touchstart", handler);
+  });
 
   const fmtTime = ms => { const s=Math.floor(ms/1000); return `${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`; };
 
@@ -340,20 +404,51 @@ function ChatView({ contact, onBack, t }) {
                 </span>
               )}
               {reactionTarget===msg.id && (
-                <div className="absolute z-20 flex items-center gap-1 bg-white rounded-full px-3 py-1.5 shadow-xl border border-gray-100"
+                <div className="absolute z-20 bg-white rounded-2xl shadow-xl border border-gray-100"
                   style={{ bottom:"calc(100% + 8px)", [isMe?"right":"left"]:0, whiteSpace:"nowrap" }}>
-                  {REACTIONS.map(em => (
-                    <button key={em} onClick={ev => { ev.stopPropagation(); setReaction(msg.id,em); }}
-                      className="text-xl hover:scale-125 transition-transform"
-                      style={{ WebkitTapHighlightColor:"transparent" }}>{em}</button>
-                  ))}
-                  <div className="w-px h-5 bg-gray-200 mx-1" />
-                  <button onClick={ev => { ev.stopPropagation(); setReplyTo(msg); setReactionTarget(null); }}
-                    className="text-gray-500 text-sm font-medium hover:text-[#032EA1]"
-                    style={{ WebkitTapHighlightColor:"transparent" }}>↩</button>
+                  {/* Emoji row */}
+                  <div className="flex items-center gap-1 px-3 py-1.5">
+                    {REACTIONS.map(em => (
+                      <button key={em} onClick={ev => { ev.stopPropagation(); setReaction(msg.id,em); }}
+                        className="text-xl hover:scale-125 transition-transform"
+                        style={{ WebkitTapHighlightColor:"transparent" }}>{em}</button>
+                    ))}
+                    <div className="w-px h-5 bg-gray-200 mx-1" />
+                    <button onClick={ev => { ev.stopPropagation(); setReplyTo(msg); setReactionTarget(null); }}
+                      className="text-gray-500 text-sm font-medium hover:text-[#032EA1]"
+                      style={{ WebkitTapHighlightColor:"transparent" }}>↩</button>
+                  </div>
+                  {/* Translate button — only for text messages */}
+                  {(!msg.type || msg.type==="text") && msg.text && (
+                    <>
+                      <div className="h-px bg-gray-100 mx-3" />
+                      <button
+                        onClick={ev => { ev.stopPropagation(); translateMsg(msg.id, msg.text); }}
+                        className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-[#032EA1] font-medium hover:bg-gray-50 rounded-b-2xl"
+                        style={{ WebkitTapHighlightColor:"transparent" }}>
+                        <span>🌐</span>
+                        <span>{msg.showTranslated ? "Show original" : isKhmer(msg.text) ? "Translate to English" : "បកប្រែជាខ្មែរ"}</span>
+                      </button>
+                    </>
+                  )}
                 </div>
               )}
             </div>
+            {/* Translated text */}
+            {msg.translating && (
+              <p className="text-[11px] text-gray-400 mt-1 italic px-1">Translating…</p>
+            )}
+            {msg.showTranslated && msg.translatedText && (
+              <div className="mt-1 px-3 py-1.5 rounded-xl text-[12px] leading-relaxed"
+                style={{ background: isMe ? "rgba(3,46,161,0.08)" : "rgba(0,0,0,0.05)",
+                  color: "#4b5563", maxWidth: "100%" }}>
+                <span className="text-[10px] font-semibold text-[#032EA1] mr-1">🌐</span>
+                {msg.translatedText}
+                <button onClick={() => setMsgs(p => p.map(m => m.id===msg.id?{...m,showTranslated:false}:m))}
+                  className="ml-2 text-[10px] text-gray-400 underline"
+                  style={{ WebkitTapHighlightColor:"transparent" }}>hide</button>
+              </div>
+            )}
             <div className="flex items-center gap-1 mt-0.5">
               <span className="text-[10px] text-gray-400">{msg.time}</span>
               {isMe && <span className="text-[10px] text-[#032EA1]">{msg.status==="seen"?"✓✓":"✓"}</span>}
@@ -369,18 +464,6 @@ function ChatView({ contact, onBack, t }) {
       style={{ height:"100dvh", background:"#F0F2F5",
         WebkitUserSelect:"none", userSelect:"none", WebkitTouchCallout:"none" }}
       onClick={() => { setReactionTarget(null); setShowAttach(false); }}>
-
-      {/* Full-screen overlay while recording — captures touch/mouse on iOS PWA */}
-      {isRecording && (
-        <div className="fixed inset-0 z-20"
-          style={{ touchAction:"none" }}
-          onTouchMove={e => { e.preventDefault(); onRecordMove(e); }}
-          onMouseMove={onRecordMove}
-          onTouchEnd={stopRecording}
-          onTouchCancel={stopRecording}
-          onMouseUp={stopRecording}
-        />
-      )}
 
       {/* ── Header ── */}
       <div className="flex items-center gap-3 pb-3 px-4 bg-white shadow-sm flex-shrink-0"
@@ -510,8 +593,6 @@ function ChatView({ contact, onBack, t }) {
               </button>
               {showAttach && (
                 <AttachTray
-                  onImage={() => imgInputRef.current?.click()}
-                  onCamera={() => camInputRef.current?.click()}
                   onFile={() => fileInputRef.current?.click()}
                   onLocation={() => setMsgs(p => [...p, mkMsg("me", { text:"📍 ភ្នំពេញ, Cambodia (12.3657° N, 104.9910° E)" })])}
                   onClose={() => setShowAttach(false)}
@@ -555,8 +636,8 @@ function ChatView({ contact, onBack, t }) {
             </button>
           ) : (
             <button
+              ref={micBtnRef}
               onMouseDown={startRecording}
-              onTouchStart={startRecording}
               className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 shadow"
               style={{ background:"linear-gradient(135deg,#032EA1,#8B0020)",
                 touchAction:"none", WebkitTapHighlightColor:"rgba(0,0,0,0)",

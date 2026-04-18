@@ -37,7 +37,7 @@ export function AuthProvider({ children }) {
       dob,
       gender,
       province,
-      avatar: `https://i.pravatar.cc/300?img=${Math.floor(Math.random() * 70)}`,
+      avatar: `https://i.pravatar.cc/600?img=${Math.floor(Math.random() * 70)}`,
       bio: "",
       interests: [],
       createdAt: new Date().toISOString(),
